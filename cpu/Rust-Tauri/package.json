@@ -1,0 +1,32 @@
+{
+  "name": "rtsp-stress-test-tauri-cpu",
+  "version": "1.0.0",
+  "description": "24-Hour 30-stream 1440p 25fps RTSP Video Grid Benchmark (Rust Tauri CPU Software Decode)",
+  "type": "module",
+  "scripts": {
+    "dev:vite": "vite",
+    "dev": "tauri dev",
+    "build:frontend": "tsc && vite build",
+    "build": "tauri build",
+    "start": "tauri dev",
+    "rtsp:feed": "./scripts/start_rtsp_feed.sh",
+    "poll:hardware": "./scripts/poll_hardware.sh",
+    "start:headless": "xvfb-run -s \"-screen 0 2560x1440x24\" npm run start",
+    "benchmark:headless": "./scripts/run_benchmark_headless.sh"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.2.4",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "cross-env": "^7.0.3",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3"
+  }
+}

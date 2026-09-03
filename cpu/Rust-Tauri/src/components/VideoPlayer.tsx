@@ -1,0 +1,253 @@
+import { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
+
+export interface VideoPlayerRef {
+  getFpsAndReset: () => number;
+  updateFpsDisplay: (fps: number) => void;
+}
+
+interface VideoPlayerProps {
+  streamId: number;
+  wsPort: number;
+}
+
+export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ streamId, wsPort }, ref) => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const fpsBadgeRef = useRef<HTMLSpanElement | null>(null);
+  const statusDotRef = useRef<HTMLSpanElement | null>(null);
+  const placeholderRef = useRef<HTMLDivElement | null>(null);
+
+  const frameCountRef = useRef<number>(0);
+  const hasRenderedFirstFrameRef = useRef<boolean>(false);
+  const hasSeenKeyframeRef = useRef<boolean>(false);
+  const decoderRef = useRef<VideoDecoder | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    getFpsAndReset: () => {
+      const fps = frameCountRef.current;
+      frameCountRef.current = 0;
+      return fps;
+    },
+    updateFpsDisplay: (fps: number) => {
+      if (fpsBadgeRef.current) {
+        fpsBadgeRef.current.textContent = `${fps} FPS`;
+        fpsBadgeRef.current.className = 'fps-badge ' + (
+          fps >= 25 ? 'acceptable' : fps >= 20 ? 'warning' : 'unacceptable'
+        );
+      }
+      if (statusDotRef.current) {
+        statusDotRef.current.className = 'status-dot ' + (fps > 0 ? 'active' : 'waiting');
+      }
+      if (placeholderRef.current && fps > 0) {
+        placeholderRef.current.style.display = 'none';
+      }
+    },
+  }));
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    let isDestroyed = false;
+
+    // Use ImageBitmapRenderingContext for direct GPU compositor transfer
+    let bitmapCtx: ImageBitmapRenderingContext | null = null;
+    let ctx2d: CanvasRenderingContext2D | null = null;
+
+    try {
+      bitmapCtx = canvas.getContext('bitmaprenderer');
+    } catch {
+      // Fallback to 2D
+    }
+    if (!bitmapCtx) {
+      ctx2d = canvas.getContext('2d', { alpha: false });
+    }
+
+    const createDecoder = () => {
+      if (isDestroyed) return;
+
+      try {
+        if (decoderRef.current && decoderRef.current.state !== 'closed') {
+          try { decoderRef.current.close(); } catch { /* ignore */ }
+        }
+
+        const decoder = new VideoDecoder({
+          output: (videoFrame: VideoFrame) => {
+            if (isDestroyed) {
+              videoFrame.close();
+              return;
+            }
+
+            if (streamId === 0 && !hasRenderedFirstFrameRef.current) {
+              hasRenderedFirstFrameRef.current = true;
+              console.log(`[Stream 0] SUCCESS: First frame rendered via ImageBitmap! Dimensions: ${videoFrame.displayWidth}x${videoFrame.displayHeight}`);
+            }
+
+            // Convert hardware VideoFrame to ImageBitmap to guarantee display on WebKit
+            createImageBitmap(videoFrame)
+              .then((bitmap) => {
+                videoFrame.close();
+                if (isDestroyed) {
+                  bitmap.close();
+                  return;
+                }
+
+                if (bitmapCtx) {
+                  bitmapCtx.transferFromImageBitmap(bitmap);
+                } else if (ctx2d) {
+                  if (canvas.width !== bitmap.width || canvas.height !== bitmap.height) {
+                    canvas.width = bitmap.width;
+                    canvas.height = bitmap.height;
+                  }
+                  ctx2d.drawImage(bitmap, 0, 0);
+                  bitmap.close();
+                }
+
+                frameCountRef.current++;
+
+                if (placeholderRef.current && placeholderRef.current.style.display !== 'none') {
+                  placeholderRef.current.style.display = 'none';
+                }
+              })
+              .catch((err) => {
+                videoFrame.close();
+                console.warn(`[Stream ${streamId}] createImageBitmap error:`, err);
+              });
+          },
+          error: (err: any) => {
+            console.warn(`[Stream ${streamId}] Decoder error: ${err?.message || err}`);
+            hasSeenKeyframeRef.current = false;
+            // Delay recreation to prevent cascading restart loops
+            setTimeout(() => {
+              if (!isDestroyed) createDecoder();
+            }, 500);
+          },
+        });
+
+        decoderRef.current = decoder;
+      } catch (err: any) {
+        console.error(`[Stream ${streamId}] Failed to create VideoDecoder:`, err?.message || err);
+      }
+    };
+
+    createDecoder();
+
+    const wsUrl = `ws://127.0.0.1:${wsPort}/stream/${streamId}`;
+    const ws = new WebSocket(wsUrl);
+    ws.binaryType = 'arraybuffer';
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      if (statusDotRef.current) {
+        statusDotRef.current.className = 'status-dot waiting';
+      }
+    };
+
+    ws.onmessage = (event: MessageEvent) => {
+      if (isDestroyed || !decoderRef.current) return;
+      if (typeof event.data === 'string') return;
+
+      const buffer = event.data as ArrayBuffer;
+      if (buffer.byteLength < 11) return;
+
+      const view = new DataView(buffer);
+      const isKey = view.getUint8(0) === 1;
+      const timestampUs = Number(view.getBigInt64(1));
+      const descLen = view.getUint16(9);
+      const offset = 11 + descLen;
+
+      // Extract native AVCC description produced by GStreamer
+      if (descLen > 0 && decoderRef.current.state === 'unconfigured') {
+        const desc = new Uint8Array(buffer, 11, descLen);
+        try {
+          decoderRef.current.configure({
+            codec: 'avc1.42c032',
+            description: desc,
+            optimizeForLatency: true,
+          });
+        } catch (err: any) {
+          console.error(`[Stream ${streamId}] Decoder configure failed:`, err?.message || err);
+        }
+      }
+
+      if (decoderRef.current.state !== 'configured') {
+        return;
+      }
+
+      // WebCodecs constraint: must start decoding with a keyframe
+      if (!hasSeenKeyframeRef.current) {
+        if (!isKey) return;
+        hasSeenKeyframeRef.current = true;
+      }
+
+      // Skip in-band parameter sets (SPS=7, PPS=8, SEI=6) so keyframe chunk begins with IDR slice (type 5)
+      let nalOffset = offset;
+      const nalView = new DataView(buffer);
+      while (nalOffset + 4 < buffer.byteLength) {
+        const nalLen = nalView.getUint32(nalOffset);
+        if (nalOffset + 4 + nalLen > buffer.byteLength) break;
+        const nalType = (new Uint8Array(buffer, nalOffset + 4, 1))[0] & 0x1f;
+        if (nalType === 7 || nalType === 8 || nalType === 6) {
+          nalOffset += 4 + nalLen;
+        } else {
+          break;
+        }
+      }
+
+      const nalData = new Uint8Array(buffer, nalOffset);
+      if (nalData.length === 0) return;
+
+      // Backpressure guard: if decoder queue is backed up, drop delta frame
+      if (!isKey && decoderRef.current.decodeQueueSize > 2) {
+        return;
+      }
+
+      try {
+        const chunk = new EncodedVideoChunk({
+          type: isKey ? 'key' : 'delta',
+          timestamp: timestampUs,
+          data: nalData,
+        });
+        decoderRef.current.decode(chunk);
+      } catch (decodeErr: any) {
+        console.warn(`[Stream ${streamId}] decode error:`, decodeErr?.message || decodeErr);
+      }
+    };
+
+    ws.onclose = () => {
+      if (!isDestroyed && statusDotRef.current) {
+        statusDotRef.current.className = 'status-dot offline';
+      }
+    };
+
+    return () => {
+      isDestroyed = true;
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      if (decoderRef.current) {
+        if (decoderRef.current.state !== 'closed') {
+          try { decoderRef.current.close(); } catch { /* ignore */ }
+        }
+        decoderRef.current = null;
+      }
+    };
+  }, [streamId, wsPort]);
+
+  return (
+    <div className="video-player-card">
+      <div className="player-overlay">
+        <span ref={statusDotRef} className="status-dot waiting" />
+        <span className="stream-id-tag">CH-{String(streamId + 1).padStart(2, '0')}</span>
+        <span ref={fpsBadgeRef} className="fps-badge warning">0 FPS</span>
+      </div>
+      <canvas ref={canvasRef} className="video-canvas" />
+      <div ref={placeholderRef} className="waiting-placeholder">
+        <span>Connecting CH-{streamId + 1}...</span>
+      </div>
+    </div>
+  );
+});
+
+VideoPlayer.displayName = 'VideoPlayer';
