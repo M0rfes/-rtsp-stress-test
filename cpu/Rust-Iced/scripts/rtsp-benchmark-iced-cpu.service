@@ -1,0 +1,23 @@
+[Unit]
+Description=24-Hour RTSP 30-Stream Video Grid Benchmark (Rust Iced CPU)
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/rtsp-stress-test/cpu/Rust-Iced
+Environment=BENCHMARK_LOG_DIR=/var/log/benchmark
+Environment=RTSP_URL=rtsp://127.0.0.1:8554/live
+Environment=STREAM_COUNT=30
+Environment=LIBGL_ALWAYS_SOFTWARE=1
+ExecStart=/opt/rtsp-stress-test/cpu/Rust-Iced/scripts/run_benchmark_headless.sh
+Restart=always
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=15
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

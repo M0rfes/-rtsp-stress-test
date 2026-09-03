@@ -1,0 +1,20 @@
+[package]
+name = "rtsp-stress-test-iced-cpu"
+version = "1.0.0"
+description = "24-Hour 30-stream 1440p 25fps RTSP Video Grid Benchmark (Rust Iced CPU Software Decode)"
+edition = "2021"
+
+[dependencies]
+iced = { version = "0.14", default-features = false, features = ["tiny-skia", "image", "tokio", "crisp", "x11", "wayland"] }
+gstreamer = "0.25"
+gstreamer-app = "0.25"
+arc-swap = "1.7"
+yuv = "0.8"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+dotenvy = "0.15"
+bytes = "1"
+log = "0.4"
+env_logger = "0.11"
