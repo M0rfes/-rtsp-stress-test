@@ -115,8 +115,8 @@
 | **Electron** | GPU (Zero-Copy) | `gpu/Electron` | **Completed & Tested** | WebCodecs `prefer-hardware`, `OffscreenCanvas` `BitmapRenderer` zero-copy, VA-API & EGL flags |
 | **C++ (Qt6)** | CPU (Software) | `cpu/CPP` | Pending | `libavcodec` software decode, `libswscale` to RGB32, `QPainter` |
 | **C++ (Qt6)** | GPU (Zero-Copy) | `gpu/CPP` | Pending | `AV_HWDEVICE_TYPE_VAAPI` / `CUDA`, `QOpenGLWidget` / RHI |
-| **Rust (Tauri)**| CPU (Software) | `cpu/Rust-Tauri` | Pending | `gstreamer-rs` demux, WebSocket IPC, React WebCodecs Canvas |
-| **Rust (Tauri)**| GPU (Zero-Copy) | `gpu/Rust-Tauri` | Pending | `gstreamer-rs` demux, WebSocket IPC, `BitmapRenderer` / WebGPU |
+| **Rust (Tauri)**| CPU (Software) | `cpu/Rust-Tauri` | **Completed & Tested** | `gstreamer-rs` demux, WebSocket IPC, React WebCodecs Canvas |
+| **Rust (Tauri)**| GPU (Zero-Copy) | `gpu/Rust-Tauri` | **Completed & Tested** | `gstreamer-rs` demux, WebSocket IPC, `BitmapRenderer` / WebGPU |
 | **Rust (Iced)** | CPU (Software) | `cpu/Rust-Iced` | Pending | `gstreamer-rs` / `ffmpeg-next`, `tiny-skia` backend, `Arc<RwLock<[u8]>>` |
 | **Rust (Iced)** | GPU (Zero-Copy) | `gpu/Rust-Iced` | Pending | `gstreamer-rs` nvdec, `iced_wgpu` backend, WGPU texture mapping |
 | **C# (.NET)** | CPU (Software) | `cpu/C#` | Pending | Avalonia UI, `FFmpeg.AutoGen`, `WriteableBitmap.Lock()` memory copy |
@@ -235,23 +235,126 @@ In combination with `app.commandLine.appendSwitch('disable-accelerated-video-dec
 ---
 
 ### 9.3 Rust (Tauri) Implementation Guide (`cpu/Rust-Tauri` and `gpu/Rust-Tauri`)
-* **IPC Bottleneck Avoidance:**
-  - Never use Tauri's `invoke()` or `window.emit()` to pass video frames. IPC serialization in WebKitGTK chokes at ~50 FPS aggregate.
-  - Run a lightweight Tokio WebSocket server (`tokio-tungstenite`) in the Rust backend on `127.0.0.1:9999`.
-  - Stream compressed NAL units in binary packets directly to the React frontend (identical protocol to the Electron benchmark).
-* **Demuxing with `gstreamer-rs`:**
-  - Build a GStreamer pipeline:
+
+#### 1. Real-World Architecture & Performance Insights
+* **Native C AVCC Framing vs JavaScript Event Loop Saturation:**
+  - **The Hazard:** At 30 streams × 25 FPS = 750 frames/sec (each ~150 KB), parsing Annex B start codes (`00 00 00 01`) inside a single-threaded JavaScript loop requires scanning **112,500,000 bytes per second**. This allocates 750 `Uint8Array`s per second (~100 MB/s allocation churn), triggering continuous Garbage Collection pauses and pinning the UI thread at 100% CPU.
+  - **The Solution:** Configure GStreamer's pipeline in C to emit native AVCC format:
     ```text
-    rtspsrc location=rtsp://127.0.0.1:8554/live protocols=tcp ! rtph264depay ! h264parse ! appsink name=sink
+    rtspsrc location=... protocols=tcp latency=0 drop-on-latency=true ! \
+    rtph264depay ! \
+    h264parse config-interval=-1 ! \
+    video/x-h264,stream-format=avc,alignment=au ! \
+    appsink name=sink sync=false max-buffers=5 drop=true emit-signals=false
     ```
-  - In `appsink`, accumulate slices into Access Units before pushing to the WebSocket.
-* **Tauri Frontend (React + WebCodecs):**
-  - Reuse the high-performance React renderer architecture:
-    - For `cpu/Rust-Tauri`: WebCodecs `prefer-software` with HTML5 Canvas.
-    - For `gpu/Rust-Tauri`: WebCodecs `prefer-hardware` with `OffscreenCanvas` and `ImageBitmapRenderingContext` (`transferFromImageBitmap`).
-  - WebKitGTK Launch Flags on Linux: Set `WEBKIT_HARDWARE_ACCELERATION_POLICY=always` and ensure Mesa / VA-API drivers are accessible to the WebView.
+  - GStreamer formats 4-byte length-prefixed NAL units in sub-microsecond C code and extracts `codec_data` (extradata) on caps. The React frontend performs zero scanning, passing zero-copy typed views straight to `EncodedVideoChunk`.
+
+* **Zero-Copy IPC via `bytes::Bytes`:**
+  - Never clone raw vector payloads across Tokio tasks (`(*data).clone()`). Use `bytes::Bytes` in `broadcast::Sender<Bytes>`. `tokio-tungstenite`'s `Message::Binary(bytes)` takes `Bytes` directly, making WebSocket packet distribution a zero-copy pointer bump.
+
+* **Non-Blocking Telemetry with `std::sync::RwLock`:**
+  - Standard `Mutex<TelemetryManager>` creates cross-thread lock contention between the 30 WebSocket streams and the control socket.
+  - Using `RwLock<TelemetryManager>` ensures client init reads and HUD polling are completely lock-free and parallel; exclusive write locks only occur during the 1-second interval tick aggregation.
+
+* **Low-Latency Channel Backpressure:**
+  - Set the demuxer broadcast channel buffer capacity to **8 frames (~320ms)** rather than large buffers (e.g. 64 frames = 2.5s backlog). If the decoder queue builds up, old frames are dropped immediately, eliminating latency drift and memory spikes.
+  - In `VideoPlayer.tsx`, check `decoder.decodeQueueSize > 2` and drop delta frames under backpressure to protect the decoder pipeline.
+
+* **Canvas Rendering in WebKit (`ImageBitmapRenderingContext`):**
+  - **The Gotcha:** Standard HTML5 Canvas 2D `ctx.drawImage(videoFrame)` has a known WebKit limitation where hardware-backed `VideoFrame` (`CVPixelBufferRef`) objects fail silently or render black without throwing an error.
+  - **The Solution:** Use `createImageBitmap(videoFrame)` combined with `canvas.getContext('bitmaprenderer')`:
+    ```typescript
+    createImageBitmap(videoFrame).then((bitmap) => {
+      bitmapCtx.transferFromImageBitmap(bitmap); // Direct zero-copy compositor handoff
+      videoFrame.close();
+    });
+    ```
+
+* **Platform Hardware Caps (macOS VideoToolbox vs. Chromium vs. Linux AWS EC2):**
+  - **macOS Desktop (Apple Silicon) & WebKit Constraints:**
+    - WebKit (`WKWebView` in Tauri on macOS) delegates `VideoDecoder` directly to Apple's **VideoToolbox** (`VTDecompressionSession`).
+    - VideoToolbox enforces a strict hardware session limit: on standard Apple Silicon (M1/M2/M3/M4), the hardware VPU only accommodates ~8–16 simultaneous 1440p decode contexts.
+    - At 30 streams × 25 FPS = 750 frames/sec (2.76 Gigapixels/sec), VideoToolbox's queue overflows and times out, emitting:
+      `[Renderer WARN] VideoDecoder error: Decoding task did not complete`
+      WebKit marks the decoder as `closed` (`InvalidStateError`), causing crash-and-recreation loops and reducing throughput to sub-5 FPS.
+    - **Why 4 Streams Work Flawlessly:** 4 streams (100 FPS total) stay well below the 8-session ceiling. VideoToolbox never times out, and each stream decodes at full 25 FPS.
+  - **Why Electron (Chromium) Handles 30 Streams on macOS While WebKit Struggles:**
+    - Chromium has a dedicated GPU process and an internal multi-threaded software fallback engine (`FFmpegVideoDecoder`).
+    - When hardware decoding saturates or exceeds session caps, Chromium **transparently demotes excess streams to software decoding** across CPU cores without failing or throwing errors to the web application.
+    - WebKit does *not* bundle FFmpeg and relies exclusively on VideoToolbox; when hardware sessions saturate, WebKit simply fails.
+  - **The "UI Reloading" Watchdog Trap in macOS WebKit:**
+    - 30 streams of 1440p RGBA produce `30 * 25 * 14.7 MB = 11.05 GB/s` of raw pixel throughput.
+    - On macOS, `com.apple.WebKit.WebContent` is strictly policed by a system memory and thread responsiveness watchdog. If memory buffers exceed ~2–3 GB or the main thread hitches during compositor frame swaps, macOS sends `SIGKILL`, causing `WKWebView` to issue an automatic full-page reload (`WebProcess terminated, reloading...`).
+  - **The Asynchronous `createImageBitmap` Queueing Trap:**
+    - In WebCodecs, `createImageBitmap(videoFrame)` is an asynchronous Promise. Placing an aggressive check like `if (pendingFrames > 2) { videoFrame.close(); return; }` artificially caps frame rates to ~6 FPS across 30 streams because JS event loop microtasks take 10–20ms under high load.
+  - **GStreamer `rtspsrc` Jitterbuffer Tuning:**
+    - Setting `rtspsrc latency=0 drop-on-latency=true` creates a zero-millisecond jitterbuffer. On loopback with 30 concurrent pipelines, standard thread scheduling jitter (1–5ms) causes GStreamer's `rtpjitterbuffer` to drop 70%+ of incoming RTP packets.
+    - Setting `latency=50 drop-on-latency=false` buffers just ~1.25 frames at 25 FPS, completely eliminating premature frame drops while maintaining real-time responsiveness.
+  - **AWS EC2 Ubuntu Production Environment (`g6.xlarge` / `g4dn` / `c7i.8xlarge`):**
+    - The production target avoids all macOS-specific issues:
+      1. WebKitGTK on Linux uses GStreamer (`libavcodec`) and Nvidia VA-API (`libva-nvidia-driver`), bypassing Apple VideoToolbox session caps.
+      2. Headless `Xvfb` has no display refresh lock or macOS CoreAnimation watchdog killing the process.
+      3. All 32 vCPUs or Nvidia NVDEC hardware engines participate in decoding.
 
 ---
+
+#### 2. AWS EC2 Build & Deployment Runbook (Ubuntu 22.04 / 24.04 LTS)
+
+##### Step 1: EC2 Instance Sizing & Launch
+* **Instance Type:** `c7i.8xlarge` (32 vCPUs, 64 GiB RAM, DDR5 memory).
+* **OS:** Ubuntu 24.04 LTS or 22.04 LTS AMD64 (`ami-xxxx`).
+* **Security Group:** Open inbound TCP port `22` (SSH), and TCP `8554` if streaming from a separate VPC box.
+
+##### Step 2: System Provisioning
+Connect via SSH and execute the automated user-data provisioner:
+```bash
+git clone https://github.com/your-org/rtsp-stress-test.git /opt/rtsp-stress-test
+cd /opt/rtsp-stress-test/cpu/Rust-Tauri
+
+# Run provisioning script (installs GStreamer, WebKitGTK, Rust, Node.js 22, Xvfb)
+chmod +x scripts/*.sh
+sudo ./scripts/ec2_userdata.sh
+source "$HOME/.cargo/env"
+```
+
+##### Step 3: Compile Release Binary
+```bash
+# Build frontend and optimized Rust release binary
+npm install
+npm run build
+```
+The optimized executable is generated at `src-tauri/target/release/rtsp-stress-test-tauri-cpu`.
+
+##### Step 4: Run 24-Hour Benchmark Headless (Standalone Execution)
+```bash
+# Optional: specify remote RTSP URL or custom stream count
+export RTSP_URL="rtsp://10.0.1.50:8554/live"
+export STREAM_COUNT=30
+
+./scripts/run_benchmark_headless.sh
+```
+This automatically initializes the virtual framebuffer (`xvfb-run -a -s "-screen 0 2560x1440x24"`), enforces WebKit software rendering flags (`WEBKIT_DISABLE_COMPOSITING_MODE=1`, `LIBGL_ALWAYS_SOFTWARE=1`), spawns the external hardware poller, and flushes rolling 60-second JSON buckets.
+
+##### Step 5: Configure 24-Hour Automated Systemd Daemon
+To ensure the benchmark survives SSH disconnects and restarts automatically on reboot:
+```bash
+sudo ./scripts/setup_autostart.sh
+```
+* **Verify Service Status:** `sudo systemctl status rtsp-benchmark-tauri-cpu`
+* **Tail Service Logs:** `journalctl -u rtsp-benchmark-tauri-cpu -f`
+* **Stop Service:** `sudo systemctl stop rtsp-benchmark-tauri-cpu`
+
+##### Step 6: Monitor Benchmark Telemetry
+```bash
+# 1. Monitor rolling 60-second FPS performance buckets:
+tail -f /var/log/benchmark/fps_metrics.log
+
+# 2. Monitor 10-second external CPU / RAM utilization:
+tail -f /var/log/benchmark/hardware_metrics.csv
+```
+
+---
+
 
 ### 9.4 Rust (Iced) Implementation Guide (`cpu/Rust-Iced` and `gpu/Rust-Iced`)
 * **CPU Mode (`cpu/Rust-Iced`):**

@@ -8,6 +8,12 @@ logs/
 .DS_Store
 Thumbs.db
 
+# MediaMTX temporary auto-generated TLS certificates
+auto.crt
+auto.key
+*.crt
+*.key
+
 # Node / Electron
 node_modules/
 dist/

@@ -1,0 +1,5 @@
+# MediaMTX configuration for RTSP benchmark
+api: yes
+protocols: [tcp]
+paths:
+  all:

@@ -1,0 +1,22 @@
+[Unit]
+Description=RTSP 30-Stream GPU Benchmark (Rust Tauri Zero-Copy Hardware Decode)
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/rtsp-stress-test/gpu/Rust-Tauri
+EnvironmentFile=-/opt/rtsp-stress-test/gpu/Rust-Tauri/.env
+Environment=BENCHMARK_HEADLESS=1
+Environment=BENCHMARK_LOG_DIR=/var/log/benchmark
+ExecStart=/bin/bash /opt/rtsp-stress-test/gpu/Rust-Tauri/scripts/run_benchmark_headless.sh
+Restart=always
+RestartSec=10
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-cli/schema.json",
+  "productName": "rtsp-stress-test-tauri-gpu",
+  "version": "1.0.0",
+  "identifier": "com.rtsp.stress.test.tauri.gpu",
+  "build": {
+    "beforeDevCommand": "npm run dev:vite",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build:frontend",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "RTSP 30-Stream Stress Test (Rust Tauri GPU Zero-Copy Benchmark)",
+        "width": 2560,
+        "height": 1440,
+        "minWidth": 1280,
+        "minHeight": 720,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": false
+  }
+}
