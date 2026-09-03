@@ -16,12 +16,17 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
   const statusDotRef = useRef<HTMLSpanElement | null>(null);
   const placeholderRef = useRef<HTMLDivElement | null>(null);
 
-  // High performance: track frames in mutable refs to avoid React V8 overhead
+  // High performance mutable refs to decouple video rendering from React render cycle
   const frameCountRef = useRef<number>(0);
+  const pendingFramesRef = useRef<number>(0);
   const hasConfiguredRef = useRef<boolean>(false);
   const currentCodecRef = useRef<string>('');
   const decoderRef = useRef<VideoDecoder | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+
+  // Offscreen canvas and BitmapRenderer context refs
+  const offscreenCanvasRef = useRef<OffscreenCanvas | null>(null);
+  const bitmapCtxRef = useRef<ImageBitmapRenderingContext | null>(null);
 
   useImperativeHandle(ref, () => ({
     getFpsAndReset: () => {
@@ -30,7 +35,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
       return fps;
     },
     updateFpsDisplay: (fps: number) => {
-      // Direct DOM update: zero React re-renders
+      // Direct DOM update: zero React re-renders for maximum V8 throughput
       if (fpsBadgeRef.current) {
         fpsBadgeRef.current.textContent = `${fps} FPS`;
         fpsBadgeRef.current.className = 'fps-badge ' + (
@@ -49,12 +54,39 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d', { alpha: false });
-    if (!ctx) return;
 
     let isDestroyed = false;
 
-    // Helper to find SPS in Annex B buffer and extract codec string
+    // Architecture Constraint:
+    // "Render the VideoFrame objects to an OffscreenCanvas. You MUST use the BitmapRenderer context
+    // (transferFromImageBitmap) or WebGPU (importExternalTexture) to ensure zero-copy GPU-to-GPU transfer.
+    // Do not use Canvas 2D drawImage."
+    let offscreen: OffscreenCanvas | null = offscreenCanvasRef.current;
+    let bitmapCtx: ImageBitmapRenderingContext | null = bitmapCtxRef.current;
+
+    if (!bitmapCtx) {
+      try {
+        if ('transferControlToOffscreen' in canvas && !offscreenCanvasRef.current) {
+          offscreen = canvas.transferControlToOffscreen();
+          offscreenCanvasRef.current = offscreen;
+          bitmapCtx = offscreen.getContext('bitmaprenderer') as ImageBitmapRenderingContext | null;
+        }
+      } catch (err) {
+        console.warn(`[Stream ${streamId}] transferControlToOffscreen fallback:`, err);
+      }
+
+      if (!bitmapCtx) {
+        bitmapCtx = canvas.getContext('bitmaprenderer') as ImageBitmapRenderingContext | null;
+      }
+      bitmapCtxRef.current = bitmapCtx;
+    }
+
+    if (!bitmapCtx) {
+      console.error(`[Stream ${streamId}] Failed to acquire ImageBitmapRenderingContext`);
+      return;
+    }
+
+    // Helper to find SPS in Annex B buffer and extract codec string (H.264 Level 5.0+ for 1440p)
     const extractSpsCodec = (data: Uint8Array): string | null => {
       for (let i = 0; i < data.length - 5; i++) {
         let scLen = 0;
@@ -76,7 +108,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
       return null;
     };
 
-    // Initialize VideoDecoder
+    // Initialize hardware-accelerated VideoDecoder
     try {
       const decoder = new VideoDecoder({
         output: (videoFrame: VideoFrame) => {
@@ -85,22 +117,55 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
             return;
           }
 
-          // Adjust canvas size to match frame dimensions
-          if (canvas.width !== videoFrame.displayWidth || canvas.height !== videoFrame.displayHeight) {
-            canvas.width = videoFrame.displayWidth;
-            canvas.height = videoFrame.displayHeight;
+          // Adjust canvas/offscreen dimensions to match decoded frame
+          if (offscreen) {
+            if (offscreen.width !== videoFrame.displayWidth || offscreen.height !== videoFrame.displayHeight) {
+              offscreen.width = videoFrame.displayWidth;
+              offscreen.height = videoFrame.displayHeight;
+            }
+          } else if (canvas) {
+            if (canvas.width !== videoFrame.displayWidth || canvas.height !== videoFrame.displayHeight) {
+              canvas.width = videoFrame.displayWidth;
+              canvas.height = videoFrame.displayHeight;
+            }
           }
 
-          // Render VideoFrame to Canvas 2D
-          ctx.drawImage(videoFrame, 0, 0, canvas.width, canvas.height);
-
-          // Crucial: immediately close frame to prevent memory accumulation
-          videoFrame.close();
-          frameCountRef.current++;
-
-          if (placeholderRef.current && placeholderRef.current.style.display !== 'none') {
-            placeholderRef.current.style.display = 'none';
+          // Prevent queue buildup under extreme load
+          if (pendingFramesRef.current > 2) {
+            videoFrame.close();
+            return;
           }
+
+          pendingFramesRef.current++;
+
+          // Zero-copy GPU-to-GPU transfer via ImageBitmap and BitmapRenderer context
+          createImageBitmap(videoFrame)
+            .then((bitmap) => {
+              videoFrame.close();
+              pendingFramesRef.current--;
+
+              if (isDestroyed) {
+                bitmap.close();
+                return;
+              }
+
+              if (bitmapCtxRef.current) {
+                // Direct zero-copy transfer of GPU texture into canvas swapchain
+                bitmapCtxRef.current.transferFromImageBitmap(bitmap);
+              } else {
+                bitmap.close();
+              }
+
+              frameCountRef.current++;
+
+              if (placeholderRef.current && placeholderRef.current.style.display !== 'none') {
+                placeholderRef.current.style.display = 'none';
+              }
+            })
+            .catch((err) => {
+              pendingFramesRef.current--;
+              videoFrame.close();
+            });
         },
         error: (err) => {
           console.error(`[Stream ${streamId}] VideoDecoder error:`, err);
@@ -144,8 +209,8 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
             decoderRef.current.configure({
               codec: detectedCodec,
               avc: { format: 'annexb' },
+              hardwareAcceleration: 'prefer-hardware', // Explicitly request GPU decoding
               optimizeForLatency: true,
-              hardwareAcceleration: 'prefer-software',
             });
             hasConfiguredRef.current = true;
             currentCodecRef.current = detectedCodec;

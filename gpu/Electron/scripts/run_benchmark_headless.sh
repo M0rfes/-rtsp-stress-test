@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # run_benchmark_headless.sh - 24-Hour Benchmark Runner for Headless Linux (AWS Ubuntu)
+# Launches Electron GPU Zero-Copy Hardware Decode under Xvfb with required Chromium VA-API flags
 # Handles both local test feeds and remote/VPC separate RTSP server instances
 set -e
 
@@ -13,7 +14,7 @@ sudo chmod 777 "$LOG_DIR" 2>/dev/null || true
 RTSP_URL="${RTSP_URL:-rtsp://127.0.0.1:8554/live}"
 STREAM_COUNT="${STREAM_COUNT:-30}"
 
-echo "=== RTSP 30-Stream CPU Benchmark (Electron) ==="
+echo "=== RTSP 30-Stream GPU Zero-Copy Benchmark (Electron) ==="
 echo "Working directory: $DIR"
 echo "Log directory:     $LOG_DIR"
 echo "Active streams:    $STREAM_COUNT"
@@ -61,9 +62,20 @@ else
 fi
 
 echo "[*] Launching Electron inside Xvfb (Virtual Screen: 2560x1440x24)..."
+echo "[*] Applying GPU acceleration flags:"
+echo "    --enable-features=VaapiVideoDecoder,VaapiVideoDecodeLinuxGL,VaapiOnNvidiaGPUs"
+echo "    --use-gl=egl"
+echo "    --disable-software-rasterizer"
+echo "    --no-sandbox"
+echo "    --disable-dev-shm-usage"
 
-# Launch Electron with software decode inside Xvfb
-xvfb-run -a -s "-screen 0 2560x1440x24" npx electron . &
+# Launch Electron with GPU hardware acceleration flags inside Xvfb
+xvfb-run -a -s "-screen 0 2560x1440x24" npx electron . \
+  --enable-features=VaapiVideoDecoder,VaapiVideoDecodeLinuxGL,VaapiOnNvidiaGPUs \
+  --use-gl=egl \
+  --disable-software-rasterizer \
+  --no-sandbox \
+  --disable-dev-shm-usage &
 APP_PID=$!
 
 echo "[*] Benchmark application running with PID: $APP_PID"

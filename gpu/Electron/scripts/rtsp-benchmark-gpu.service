@@ -1,0 +1,23 @@
+[Unit]
+Description=RTSP 30-Stream GPU Zero-Copy Benchmark (Electron Hardware Decode)
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/rtsp-stress-test/gpu/Electron
+EnvironmentFile=-/opt/rtsp-stress-test/gpu/Electron/.env
+Environment=NODE_ENV=production
+Environment=BENCHMARK_HEADLESS=1
+Environment=BENCHMARK_LOG_DIR=/var/log/benchmark
+ExecStart=/bin/bash /opt/rtsp-stress-test/gpu/Electron/scripts/run_benchmark_headless.sh
+Restart=always
+RestartSec=10
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
