@@ -1,0 +1,38 @@
+# Benchmark logs & metrics
+*.log
+*.csv
+logs/
+/var/log/benchmark/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node / Electron
+node_modules/
+dist/
+dist-electron/
+out/
+.env
+.env.local
+
+# Rust
+target/
+Cargo.lock
+
+# C# / .NET / Avalonia
+bin/
+obj/
+*.user
+*.suo
+
+# C++ / Qt / CMake
+build/
+CMakeCache.txt
+CMakeFiles/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+Makefile
