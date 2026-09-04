@@ -52,6 +52,9 @@ You must measure **Unique Presented FPS** and **Frame Pacing ($\Delta t$)** at t
    * **`Unwatchable (<10 FPS, Δt > 100ms lag spikes)`** $\rightarrow$ mapped to `5_to_9_fps` and `under_5_fps` in JSON
 
 5. **Flushing:** Every 60 seconds, flush the aggregated stream-seconds JSON payload to `/var/log/benchmark/fps_metrics.log` (with graceful fallback to `./logs/fps_metrics.log`) and reset internal counters to zero.
+6. **Frame Totals:** Each 60-second flush must also log the raw frame counts for **active streams only**:
+   * **`ui_frames`**: Unique frames actually uploaded/blitted to the UI (presentation gate).
+   * **`decoded_frames`**: Frames emitted by the decoder (pipeline throughput). Duplicate PTS blits must not increment `ui_frames`. Disconnected streams must not increment either counter.
 
 ### Why UI Event Loops Lie: The Qt & C# Measurement Traps
 * **The Qt Under-Reporting Trap (10 FPS when smooth):**
@@ -82,6 +85,8 @@ You must measure **Unique Presented FPS** and **Frame Pacing ($\Delta t$)** at t
   "hardware_mode": "cpu",
   "window_duration_seconds": 60,
   "active_streams": 30,
+  "ui_frames": 44982,
+  "decoded_frames": 45000,
   "fps_stream_seconds": {
     "acceptable": {
       "25_to_30_fps": 1785,

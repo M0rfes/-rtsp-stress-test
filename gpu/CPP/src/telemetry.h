@@ -24,6 +24,20 @@ struct FpsBuckets {
     uint32_t totalStreamSeconds() const {
         return fps_25_to_30 + fps_20_to_24 + fps_10_to_19 + fps_5_to_9 + fps_under_5;
     }
+
+    void addSample(uint32_t fps) {
+        if (fps >= 25) {
+            fps_25_to_30++;
+        } else if (fps >= 20) {
+            fps_20_to_24++;
+        } else if (fps >= 10) {
+            fps_10_to_19++;
+        } else if (fps >= 5) {
+            fps_5_to_9++;
+        } else {
+            fps_under_5++;
+        }
+    }
 };
 
 class TelemetryManager {
@@ -54,8 +68,10 @@ private:
     int m_secondsInWindow = 0;
     float m_aggregateFps = 0.0f;
 
-    // Previous frame counts per stream to calculate delta per 1s tick
-    std::vector<uint64_t> m_prevFrames;
+    std::vector<uint64_t> m_prevPaintedFrames;
+    std::vector<uint64_t> m_prevDecodedFrames;
     uint64_t m_accumulatedActiveStreams = 0;
     uint32_t m_activeStreamsSampleCount = 0;
+    uint64_t m_accumulatedUiFrames = 0;
+    uint64_t m_accumulatedDecodedFrames = 0;
 };

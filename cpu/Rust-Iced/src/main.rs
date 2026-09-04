@@ -65,7 +65,7 @@ impl BenchmarkApp {
             }
             Message::TelemetryTick => {
                 let metrics = self.stream_manager.collect_metrics_tick();
-                let fps_list: Vec<u32> = metrics.iter().map(|&(f, _)| f).collect();
+                let fps_list: Vec<u32> = metrics.iter().map(|&(ui, _, _)| ui).collect();
                 let (payload, tick_in_win) = {
                     let mut tel = self.telemetry.write().unwrap();
                     tel.record_tick(&metrics)

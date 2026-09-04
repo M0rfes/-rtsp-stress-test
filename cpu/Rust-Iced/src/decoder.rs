@@ -33,6 +33,8 @@ pub struct StreamSlot {
     pub painted_frames: Arc<AtomicU64>,
     pub last_sec_frames: Arc<AtomicU32>, // True stream FPS: frames decoded & presented this second
     pub last_delta_ms: Arc<AtomicU32>,   // Frame pacing delta in milliseconds (f32 bits)
+    pub last_tick_painted: Arc<AtomicU64>,
+    pub last_tick_decoded: Arc<AtomicU64>,
     pub is_connected: Arc<AtomicBool>,
     pub resolution: Arc<RwLock<(u32, u32)>>,
 }
@@ -60,6 +62,8 @@ impl StreamSlot {
             painted_frames: Arc::new(AtomicU64::new(0)),
             last_sec_frames: Arc::new(AtomicU32::new(0)),
             last_delta_ms: Arc::new(AtomicU32::new(0)),
+            last_tick_painted: Arc::new(AtomicU64::new(0)),
+            last_tick_decoded: Arc::new(AtomicU64::new(0)),
             is_connected: Arc::new(AtomicBool::new(false)),
             resolution: Arc::new(RwLock::new((default_w, default_h))),
         }
@@ -142,10 +146,27 @@ impl StreamManager {
             .collect()
     }
 
-    pub fn collect_metrics_tick(&self) -> Vec<(u32, bool)> {
+    pub fn collect_metrics_tick(&self) -> Vec<(u32, u32, bool)> {
         self.slots
             .iter()
-            .map(|slot| (slot.take_last_sec_frames(), slot.is_connected.load(Ordering::Relaxed)))
+            .map(|slot| {
+                let painted = slot.painted_frames.load(Ordering::Relaxed);
+                let decoded = slot.decoded_frames.load(Ordering::Relaxed);
+                let prev_painted = slot.last_tick_painted.swap(painted, Ordering::Relaxed);
+                let prev_decoded = slot.last_tick_decoded.swap(decoded, Ordering::Relaxed);
+                let ui_delta = if painted >= prev_painted {
+                    (painted - prev_painted) as u32
+                } else {
+                    painted as u32
+                };
+                let decoded_delta = if decoded >= prev_decoded {
+                    (decoded - prev_decoded) as u32
+                } else {
+                    decoded as u32
+                };
+                slot.last_sec_frames.store(ui_delta, Ordering::Relaxed);
+                (ui_delta, decoded_delta, slot.is_connected.load(Ordering::Relaxed))
+            })
             .collect()
     }
 }

@@ -5,6 +5,8 @@ export interface StreamFpsReport {
   fps: number;
   isConnected: boolean;
   lastDeltaMs: number;
+  uiFrames: number;
+  decodedFrames: number;
 }
 
 export interface VideoPlayerRef {
@@ -32,6 +34,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
 
   // High performance: track frames in mutable refs to avoid React V8 overhead
   const frameCountRef = useRef<number>(0);
+  const decodedCountRef = useRef<number>(0);
   const lastTickTimeRef = useRef<number>(performance.now());
   const lastPtsRef = useRef<number | null>(null);
   const lastPresentedTimeRef = useRef<number>(0);
@@ -50,14 +53,18 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
       lastTickTimeRef.current = now;
       const fps = elapsedSec > 0 ? Math.round(frameCountRef.current / elapsedSec) : 0;
       frameCountRef.current = 0;
+      decodedCountRef.current = 0;
       return fps;
     },
     getReportAndReset: () => {
       const now = performance.now();
       const elapsedSec = (now - lastTickTimeRef.current) / 1000;
       lastTickTimeRef.current = now;
-      const fps = elapsedSec > 0 ? Math.round(frameCountRef.current / elapsedSec) : 0;
+      const uiFrames = frameCountRef.current;
+      const decodedFrames = decodedCountRef.current;
+      const fps = elapsedSec > 0 ? Math.round(uiFrames / elapsedSec) : 0;
       frameCountRef.current = 0;
+      decodedCountRef.current = 0;
       // Only mark connected if we've been receiving frames for at least 1s
       const connected = isConnectedRef.current
         && lastPresentedTimeRef.current > 0
@@ -69,6 +76,8 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
         fps,
         isConnected: connected,
         lastDeltaMs: lastDeltaMsRef.current,
+        uiFrames,
+        decodedFrames,
       };
     },
     updateFpsDisplay: (fps: number) => {
@@ -130,6 +139,8 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
             videoFrame.close();
             return;
           }
+
+          decodedCountRef.current++;
 
           // Effective FPS: Presentation Timestamp (PTS) uniqueness check
           const curPts = videoFrame.timestamp;

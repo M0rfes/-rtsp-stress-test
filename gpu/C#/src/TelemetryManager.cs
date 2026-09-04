@@ -87,6 +87,12 @@ public sealed class TelemetryPayload
     [JsonPropertyName("active_streams")]
     public int ActiveStreams { get; set; } = 30;
 
+    [JsonPropertyName("ui_frames")]
+    public long UiFrames { get; set; }
+
+    [JsonPropertyName("decoded_frames")]
+    public long DecodedFrames { get; set; }
+
     [JsonPropertyName("fps_stream_seconds")]
     public FpsStreamSecondsWrapper FpsStreamSeconds { get; set; } = new();
 
@@ -145,6 +151,7 @@ public sealed class TelemetryManager
     private int _activeStreamsSampleCount;
     private long _accumulatedPaintedFrames;
     private long _accumulatedDecodedFrames;
+    private long _accumulatedUiFrames;
 
     public float AggregateFps { get; private set; }
     public int LiveStreams { get; private set; }
@@ -205,6 +212,7 @@ public sealed class TelemetryManager
                 _decodedBuckets.AddSample(deltaD);
                 _accumulatedPaintedFrames += deltaScored;
                 _accumulatedDecodedFrames += deltaD;
+                _accumulatedUiFrames += deltaP;
             }
 
             AggregateFps = totalFps;
@@ -222,6 +230,7 @@ public sealed class TelemetryManager
                 _activeStreamsSampleCount = 0;
                 _accumulatedPaintedFrames = 0;
                 _accumulatedDecodedFrames = 0;
+                _accumulatedUiFrames = 0;
                 _secondsInWindow = 0;
             }
         }
@@ -261,6 +270,8 @@ public sealed class TelemetryManager
             HardwareMode = "gpu",
             WindowDurationSeconds = 60,
             ActiveStreams = avgActiveStreams,
+            UiFrames = _accumulatedUiFrames,
+            DecodedFrames = _accumulatedDecodedFrames,
             FpsStreamSeconds = _paintedBuckets.ToWrapper(),
             DecodeFpsStreamSeconds = _decodedBuckets.ToWrapper(),
             AvgPaintedFps = Math.Round(avgPainted, 2),
@@ -280,6 +291,7 @@ public sealed class TelemetryManager
             File.AppendAllText(_logPath, json + Environment.NewLine);
 
             Console.WriteLine($"[Telemetry] Flushed 60s window ({streamSeconds} stream-seconds) to {_logPath}");
+            Console.WriteLine($"            UI frames={_accumulatedUiFrames}  Decoded frames={_accumulatedDecodedFrames}");
             Console.WriteLine($"            Presented avg={avgPainted:0.0}  Acceptable (25-30: {_paintedBuckets.Fps25To30}, 20-24: {_paintedBuckets.Fps20To24}) | Unacc (<5: {_paintedBuckets.FpsUnder5})");
             Console.WriteLine($"            Decoded   avg={avgDecoded:0.0}  Acceptable (25-30: {_decodedBuckets.Fps25To30}, 20-24: {_decodedBuckets.Fps20To24}) | Unacc (<5: {_decodedBuckets.FpsUnder5})");
         }

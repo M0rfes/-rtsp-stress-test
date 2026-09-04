@@ -87,6 +87,12 @@ public sealed class TelemetryPayload
     [JsonPropertyName("active_streams")]
     public int ActiveStreams { get; set; } = 30;
 
+    [JsonPropertyName("ui_frames")]
+    public long UiFrames { get; set; }
+
+    [JsonPropertyName("decoded_frames")]
+    public long DecodedFrames { get; set; }
+
     [JsonPropertyName("fps_stream_seconds")]
     public FpsStreamSecondsWrapper FpsStreamSeconds { get; set; } = new();
 
@@ -267,6 +273,8 @@ public sealed class TelemetryManager
             HardwareMode = "cpu",
             WindowDurationSeconds = 60,
             ActiveStreams = avgActiveStreams,
+            UiFrames = _accumulatedPaintedFrames,
+            DecodedFrames = _accumulatedDecodedFrames,
             FpsStreamSeconds = _paintedBuckets.ToWrapper(),
             DecodeFpsStreamSeconds = _decodedBuckets.ToWrapper(),
             AvgPaintedFps = Math.Round(avgPainted, 2),
@@ -291,6 +299,7 @@ public sealed class TelemetryManager
             File.AppendAllText(_logPath, json + Environment.NewLine);
 
             Console.WriteLine($"[Telemetry] Flushed 60s window ({streamSeconds} stream-seconds) to {_logPath}");
+            Console.WriteLine($"            UI frames={_accumulatedPaintedFrames}  Decoded frames={_accumulatedDecodedFrames}");
             Console.WriteLine($"            Painted  avg={avgPainted:0.0}  Acceptable (25-30: {_paintedBuckets.Fps25To30}, 20-24: {_paintedBuckets.Fps20To24}) | Unacc (<5: {_paintedBuckets.FpsUnder5})");
             Console.WriteLine($"            Decoded  avg={avgDecoded:0.0}  Acceptable (25-30: {_decodedBuckets.Fps25To30}, 20-24: {_decodedBuckets.Fps20To24}) | Unacc (<5: {_decodedBuckets.FpsUnder5})");
         }

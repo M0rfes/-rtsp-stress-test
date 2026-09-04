@@ -114,11 +114,11 @@ export const App: React.FC = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       const streamFpsList: number[] = [];
-      const streamReports: { streamId: number; fps: number; isConnected: boolean; lastDeltaMs: number }[] = [];
+      const streamReports: { streamId: number; fps: number; isConnected: boolean; lastDeltaMs: number; uiFrames: number; decodedFrames: number }[] = [];
 
       for (let i = 0; i < streamCount; i++) {
         const player = playerRefs.current.get(i);
-        const report = player ? player.getReportAndReset() : { streamId: i, fps: 0, isConnected: false, lastDeltaMs: 0 };
+        const report = player ? player.getReportAndReset() : { streamId: i, fps: 0, isConnected: false, lastDeltaMs: 0, uiFrames: 0, decodedFrames: 0 };
         streamFpsList.push(report.fps);
         streamReports.push(report);
         if (player) {

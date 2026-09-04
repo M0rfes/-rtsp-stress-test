@@ -37,6 +37,8 @@ pub struct FpsMetricsPayload {
     pub hardware_mode: String,
     pub window_duration_seconds: u32,
     pub active_streams: usize,
+    pub ui_frames: u64,
+    pub decoded_frames: u64,
     pub fps_stream_seconds: FpsStreamSeconds,
 }
 
@@ -49,6 +51,8 @@ pub struct TelemetryManager {
     active_streams: usize,
     accumulated_active_streams: u64,
     active_streams_sample_count: u32,
+    accumulated_ui_frames: u64,
+    accumulated_decoded_frames: u64,
     latest_stream_fps: Vec<u32>,
 }
 
@@ -66,6 +70,8 @@ impl TelemetryManager {
             active_streams,
             accumulated_active_streams: 0,
             active_streams_sample_count: 0,
+            accumulated_ui_frames: 0,
+            accumulated_decoded_frames: 0,
             latest_stream_fps: vec![0; active_streams],
         }
     }
@@ -93,25 +99,26 @@ impl TelemetryManager {
         &self.latest_stream_fps
     }
 
-    pub fn record_tick(&mut self, stream_metrics: &[(u32, bool)]) -> (FpsMetricsPayload, u32) {
+    pub fn record_tick(&mut self, stream_metrics: &[(u32, u32, bool)]) -> (FpsMetricsPayload, u32) {
         self.tick_count_in_window += 1;
-        self.latest_stream_fps = stream_metrics.iter().map(|&(fps, _)| fps).collect();
+        self.latest_stream_fps = stream_metrics.iter().map(|&(ui, _, _)| ui).collect();
         let mut active_this_sec = 0;
 
-        for &(fps, is_connected) in stream_metrics {
+        for &(ui_frames, decoded_frames, is_connected) in stream_metrics {
             if !is_connected {
-                // Phase 2 Rule: Do NOT count frames or log bucket seconds for dropped / inactive streams
                 continue;
             }
 
             active_this_sec += 1;
-            if fps >= 25 {
+            self.accumulated_ui_frames += ui_frames as u64;
+            self.accumulated_decoded_frames += decoded_frames as u64;
+            if ui_frames >= 25 {
                 self.current_buckets.acceptable.fps_25_to_30 += 1;
-            } else if fps >= 20 {
+            } else if ui_frames >= 20 {
                 self.current_buckets.acceptable.fps_20_to_24 += 1;
-            } else if fps >= 10 {
+            } else if ui_frames >= 10 {
                 self.current_buckets.unacceptable.fps_10_to_19 += 1;
-            } else if fps >= 5 {
+            } else if ui_frames >= 5 {
                 self.current_buckets.unacceptable.fps_5_to_9 += 1;
             } else {
                 self.current_buckets.unacceptable.under_5_fps += 1;
@@ -135,6 +142,8 @@ impl TelemetryManager {
             self.tick_count_in_window = 0;
             self.accumulated_active_streams = 0;
             self.active_streams_sample_count = 0;
+            self.accumulated_ui_frames = 0;
+            self.accumulated_decoded_frames = 0;
         }
 
         (payload, current_sec)
@@ -148,6 +157,8 @@ impl TelemetryManager {
             hardware_mode: self.config.hardware_mode.clone(),
             window_duration_seconds: self.config.window_duration_seconds,
             active_streams: self.active_streams,
+            ui_frames: self.accumulated_ui_frames,
+            decoded_frames: self.accumulated_decoded_frames,
             fps_stream_seconds: self.current_buckets.clone(),
         }
     }
@@ -175,6 +186,10 @@ impl TelemetryManager {
                         "[Telemetry] Flushed 60s window #{} to {}",
                         self.total_flushes,
                         self.log_path.display()
+                    );
+                    println!(
+                        "[Telemetry] UI frames: {}, decoded frames: {}",
+                        payload.ui_frames, payload.decoded_frames
                     );
                     println!(
                         "[Telemetry] Acceptable (25-30: {}, 20-24: {}), Unacceptable (10-19: {}, 5-9: {}, <5: {})",

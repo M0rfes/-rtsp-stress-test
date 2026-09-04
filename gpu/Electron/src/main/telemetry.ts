@@ -14,6 +14,14 @@ export interface FpsStreamSeconds {
   };
 }
 
+export interface StreamTickMetric {
+  streamId?: number;
+  fps: number;
+  isConnected?: boolean;
+  uiFrames?: number;
+  decodedFrames?: number;
+}
+
 export interface FpsMetricsPayload {
   timestamp: string;
   machine_id: string;
@@ -21,6 +29,8 @@ export interface FpsMetricsPayload {
   hardware_mode: string;
   window_duration_seconds: number;
   active_streams: number;
+  ui_frames: number;
+  decoded_frames: number;
   fps_stream_seconds: FpsStreamSeconds;
 }
 
@@ -32,6 +42,8 @@ export class TelemetryManager {
   private activeStreams: number;
   private accumulatedActiveStreams: number = 0;
   private activeStreamsSampleCount: number = 0;
+  private accumulatedUiFrames: number = 0;
+  private accumulatedDecodedFrames: number = 0;
   private listeners: ((payload: FpsMetricsPayload, currentWindowSec: number, streamFpsList: number[]) => void)[] = [];
 
   constructor() {
@@ -76,7 +88,7 @@ export class TelemetryManager {
    * Called on every 1-second tick with the frame counts and status of each stream.
    * @param streamMetrics Array of FPS and connection status during the past second.
    */
-  public recordTick(streamMetrics: Array<{ streamId?: number; fps: number; isConnected?: boolean } | number>): void {
+  public recordTick(streamMetrics: Array<StreamTickMetric | number>): void {
     this.tickCountInWindow++;
     let activeInTick = 0;
     const fpsValues: number[] = [];
@@ -84,14 +96,17 @@ export class TelemetryManager {
     for (const item of streamMetrics) {
       const isConnected = typeof item === 'number' ? true : (item.isConnected !== false);
       const fps = typeof item === 'number' ? item : item.fps;
+      const uiFrames = typeof item === 'number' ? fps : (item.uiFrames ?? fps);
+      const decodedFrames = typeof item === 'number' ? fps : (item.decodedFrames ?? fps);
       fpsValues.push(fps);
 
       if (!isConnected) {
-        // Phase 2 Rule: Do NOT count frames or log bucket seconds for dropped / inactive streams
         continue;
       }
 
       activeInTick++;
+      this.accumulatedUiFrames += uiFrames;
+      this.accumulatedDecodedFrames += decodedFrames;
       if (fps >= 25) {
         this.currentBuckets.acceptable['25_to_30_fps']++;
       } else if (fps >= 20) {
@@ -128,6 +143,7 @@ export class TelemetryManager {
       fs.appendFileSync(this.logFilePath, jsonString + '\n\n', 'utf-8');
       this.totalFlushes++;
       console.log(`[Telemetry] Flushed 60s window #${this.totalFlushes} to ${this.logFilePath}`);
+      console.log(`[Telemetry] UI frames: ${payload.ui_frames}, decoded frames: ${payload.decoded_frames}`);
       console.log(`[Telemetry] Stats (Mode: ${config.hardwareMode}): Acceptable (25-30: ${payload.fps_stream_seconds.acceptable['25_to_30_fps']}, 20-24: ${payload.fps_stream_seconds.acceptable['20_to_24_fps']}), Unacceptable (<5: ${payload.fps_stream_seconds.unacceptable['under_5_fps']})`);
     } catch (err) {
       console.error(`[Telemetry] Error writing metrics to ${this.logFilePath}:`, err);
@@ -138,6 +154,8 @@ export class TelemetryManager {
     this.tickCountInWindow = 0;
     this.accumulatedActiveStreams = 0;
     this.activeStreamsSampleCount = 0;
+    this.accumulatedUiFrames = 0;
+    this.accumulatedDecodedFrames = 0;
   }
 
   public buildPayload(): FpsMetricsPayload {
@@ -148,6 +166,8 @@ export class TelemetryManager {
       hardware_mode: config.hardwareMode,
       window_duration_seconds: config.windowDurationSeconds,
       active_streams: this.activeStreams,
+      ui_frames: this.accumulatedUiFrames,
+      decoded_frames: this.accumulatedDecodedFrames,
       fps_stream_seconds: {
         acceptable: { ...this.currentBuckets.acceptable },
         unacceptable: { ...this.currentBuckets.unacceptable },

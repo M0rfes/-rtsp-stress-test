@@ -5,6 +5,8 @@ export interface StreamFpsReport {
   fps: number;
   isConnected: boolean;
   lastDeltaMs: number;
+  uiFrames: number;
+  decodedFrames: number;
 }
 
 export interface VideoPlayerRef {
@@ -30,6 +32,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
 
   // High-performance mutable refs — zero React re-render overhead
   const frameCountRef = useRef<number>(0);
+  const decodedCountRef = useRef<number>(0);
   const lastPtsRef = useRef<number | null>(null);
   const lastPresentedTimeRef = useRef<number>(0);
   const lastDeltaMsRef = useRef<number>(0);
@@ -43,11 +46,15 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
     getFpsAndReset: () => {
       const fps = frameCountRef.current;
       frameCountRef.current = 0;
+      decodedCountRef.current = 0;
       return fps;
     },
     getReportAndReset: () => {
-      const fps = frameCountRef.current;
+      const uiFrames = frameCountRef.current;
+      const decodedFrames = decodedCountRef.current;
+      const fps = uiFrames;
       frameCountRef.current = 0;
+      decodedCountRef.current = 0;
       const now = performance.now();
       const connected = isConnectedRef.current && (lastPresentedTimeRef.current > 0 && now - lastPresentedTimeRef.current < 3000);
       return {
@@ -55,6 +62,8 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
         fps,
         isConnected: connected,
         lastDeltaMs: lastDeltaMsRef.current,
+        uiFrames,
+        decodedFrames,
       };
     },
     updateFpsDisplay: (fps: number) => {
@@ -110,6 +119,8 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
               videoFrame.close();
               return;
             }
+
+            decodedCountRef.current++;
 
             // Effective FPS gate: only count frames with a new unique PTS
             const curPts = videoFrame.timestamp;

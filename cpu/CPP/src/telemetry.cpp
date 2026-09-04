@@ -7,6 +7,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <iostream>
+#include <cmath>
 
 TelemetryManager::TelemetryManager(const std::string& logPath, const std::string& machineId, int activeStreams)
     : m_logPath(logPath)
@@ -19,48 +20,41 @@ void TelemetryManager::tick(const std::vector<StreamWorker*>& workers) {
     std::lock_guard<std::mutex> lock(m_mutex);
 
     size_t count = workers.size();
-    if (m_prevFrames.size() != count) {
-        m_prevFrames.resize(count, 0);
+    if (m_prevPaintedFrames.size() != count) {
+        m_prevPaintedFrames.resize(count, 0);
+        m_prevDecodedFrames.resize(count, 0);
     }
+
+    auto delta = [](uint64_t current, uint64_t prev) -> uint32_t {
+        return (current >= prev) ? static_cast<uint32_t>(current - prev) : static_cast<uint32_t>(current);
+    };
 
     float totalFps = 0.0f;
     int liveStreams = 0;
 
     for (size_t i = 0; i < count; ++i) {
         if (!workers[i] || !workers[i]->isConnected()) {
-            // Phase 2 Rule: Do NOT count frames or log bucket seconds for dropped / inactive streams
             if (workers[i]) {
-                m_prevFrames[i] = workers[i]->paintedFrames();
+                m_prevPaintedFrames[i] = workers[i]->paintedFrames();
+                m_prevDecodedFrames[i] = workers[i]->decodedFrames();
                 workers[i]->setCurrentFps(0.0f);
             }
             continue;
         }
 
         liveStreams++;
-        uint64_t current = workers[i]->paintedFrames();
-        if (current == 0) {
-            current = workers[i]->decodedFrames();
-        }
+        uint64_t painted = workers[i]->paintedFrames();
+        uint64_t decoded = workers[i]->decodedFrames();
+        uint32_t deltaUi = delta(painted, m_prevPaintedFrames[i]);
+        uint32_t deltaDecoded = delta(decoded, m_prevDecodedFrames[i]);
+        m_prevPaintedFrames[i] = painted;
+        m_prevDecodedFrames[i] = decoded;
 
-        uint64_t prev = m_prevFrames[i];
-        uint32_t deltaFps = (current >= prev) ? static_cast<uint32_t>(current - prev) : static_cast<uint32_t>(current);
-        m_prevFrames[i] = current;
-
-        workers[i]->setCurrentFps(static_cast<float>(deltaFps));
-        totalFps += static_cast<float>(deltaFps);
-
-        // Categorize active streams into performance buckets
-        if (deltaFps >= 25) {
-            m_windowBuckets.fps_25_to_30++;
-        } else if (deltaFps >= 20) {
-            m_windowBuckets.fps_20_to_24++;
-        } else if (deltaFps >= 10) {
-            m_windowBuckets.fps_10_to_19++;
-        } else if (deltaFps >= 5) {
-            m_windowBuckets.fps_5_to_9++;
-        } else {
-            m_windowBuckets.fps_under_5++;
-        }
+        workers[i]->setCurrentFps(static_cast<float>(deltaUi));
+        totalFps += static_cast<float>(deltaUi);
+        m_accumulatedUiFrames += deltaUi;
+        m_accumulatedDecodedFrames += deltaDecoded;
+        m_windowBuckets.addSample(deltaUi);
     }
 
     m_aggregateFps = totalFps;
@@ -69,12 +63,13 @@ void TelemetryManager::tick(const std::vector<StreamWorker*>& workers) {
     m_activeStreamsSampleCount++;
     m_secondsInWindow++;
 
-    // Check if 60-second window is reached
     if (m_secondsInWindow >= 60) {
         flushWindow();
         m_windowBuckets.reset();
         m_accumulatedActiveStreams = 0;
         m_activeStreamsSampleCount = 0;
+        m_accumulatedUiFrames = 0;
+        m_accumulatedDecodedFrames = 0;
         m_secondsInWindow = 0;
     }
 }
@@ -105,6 +100,8 @@ void TelemetryManager::flushWindow() {
     root["hardware_mode"] = "cpu";
     root["window_duration_seconds"] = 60;
     root["active_streams"] = avgActiveStreams;
+    root["ui_frames"] = static_cast<qint64>(m_accumulatedUiFrames);
+    root["decoded_frames"] = static_cast<qint64>(m_accumulatedDecodedFrames);
     root["fps_stream_seconds"] = fpsStreamSeconds;
 
     QJsonDocument doc(root);
@@ -125,6 +122,8 @@ void TelemetryManager::flushWindow() {
 
         std::cout << "[Telemetry] Flushed 60s window (" << m_windowBuckets.totalStreamSeconds()
                   << " stream-seconds) to " << m_logPath << std::endl;
+        std::cout << "            UI frames: " << m_accumulatedUiFrames
+                  << " | Decoded frames: " << m_accumulatedDecodedFrames << std::endl;
         std::cout << "            Acceptable (25-30: " << m_windowBuckets.fps_25_to_30
                   << ", 20-24: " << m_windowBuckets.fps_20_to_24
                   << ") | Unacceptable (10-19: " << m_windowBuckets.fps_10_to_19
