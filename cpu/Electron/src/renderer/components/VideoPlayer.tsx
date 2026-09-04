@@ -26,10 +26,12 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
 
   // High performance: track frames in mutable refs to avoid React V8 overhead
   const frameCountRef = useRef<number>(0);
+  const lastTickTimeRef = useRef<number>(performance.now());
   const lastPtsRef = useRef<number | null>(null);
   const lastPresentedTimeRef = useRef<number>(0);
   const lastDeltaMsRef = useRef<number>(0);
   const isConnectedRef = useRef<boolean>(false);
+  const connectedSinceRef = useRef<number>(0);
   const hasConfiguredRef = useRef<boolean>(false);
   const currentCodecRef = useRef<string>('');
   const decoderRef = useRef<VideoDecoder | null>(null);
@@ -37,15 +39,25 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
 
   useImperativeHandle(ref, () => ({
     getFpsAndReset: () => {
-      const fps = frameCountRef.current;
+      const now = performance.now();
+      const elapsedSec = (now - lastTickTimeRef.current) / 1000;
+      lastTickTimeRef.current = now;
+      const fps = elapsedSec > 0 ? Math.round(frameCountRef.current / elapsedSec) : 0;
       frameCountRef.current = 0;
       return fps;
     },
     getReportAndReset: () => {
-      const fps = frameCountRef.current;
-      frameCountRef.current = 0;
       const now = performance.now();
-      const connected = isConnectedRef.current && (lastPresentedTimeRef.current > 0 && now - lastPresentedTimeRef.current < 3000);
+      const elapsedSec = (now - lastTickTimeRef.current) / 1000;
+      lastTickTimeRef.current = now;
+      const fps = elapsedSec > 0 ? Math.round(frameCountRef.current / elapsedSec) : 0;
+      frameCountRef.current = 0;
+      // Only mark connected if we've been receiving frames for at least 1s
+      const connected = isConnectedRef.current
+        && lastPresentedTimeRef.current > 0
+        && now - lastPresentedTimeRef.current < 3000
+        && connectedSinceRef.current > 0
+        && now - connectedSinceRef.current >= 1000;
       return {
         streamId,
         fps,
@@ -123,6 +135,9 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
             lastDeltaMsRef.current = now - lastPresentedTimeRef.current;
           }
           lastPresentedTimeRef.current = now;
+          if (!isConnectedRef.current) {
+            connectedSinceRef.current = now;
+          }
           isConnectedRef.current = true;
 
           // Adjust canvas size to match frame dimensions
@@ -214,6 +229,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
 
     ws.onclose = () => {
       isConnectedRef.current = false;
+      connectedSinceRef.current = 0;
       if (!isDestroyed && statusDotRef.current) {
         statusDotRef.current.className = 'status-dot offline';
       }

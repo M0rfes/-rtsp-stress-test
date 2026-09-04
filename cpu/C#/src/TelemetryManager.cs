@@ -26,6 +26,45 @@ public sealed class FpsBuckets
         Fps5To9 = 0;
         FpsUnder5 = 0;
     }
+
+    public void AddSample(uint fps)
+    {
+        if (fps >= 25)
+        {
+            Fps25To30++;
+        }
+        else if (fps >= 20)
+        {
+            Fps20To24++;
+        }
+        else if (fps >= 10)
+        {
+            Fps10To19++;
+        }
+        else if (fps >= 5)
+        {
+            Fps5To9++;
+        }
+        else
+        {
+            FpsUnder5++;
+        }
+    }
+
+    public FpsStreamSecondsWrapper ToWrapper() => new()
+    {
+        Acceptable = new AcceptableBuckets
+        {
+            Fps25To30 = Fps25To30,
+            Fps20To24 = Fps20To24
+        },
+        Unacceptable = new UnacceptableBuckets
+        {
+            Fps10To19 = Fps10To19,
+            Fps5To9 = Fps5To9,
+            FpsUnder5 = FpsUnder5
+        }
+    };
 }
 
 public sealed class TelemetryPayload
@@ -50,6 +89,15 @@ public sealed class TelemetryPayload
 
     [JsonPropertyName("fps_stream_seconds")]
     public FpsStreamSecondsWrapper FpsStreamSeconds { get; set; } = new();
+
+    [JsonPropertyName("decode_fps_stream_seconds")]
+    public FpsStreamSecondsWrapper DecodeFpsStreamSeconds { get; set; } = new();
+
+    [JsonPropertyName("avg_painted_fps")]
+    public double AvgPaintedFps { get; set; }
+
+    [JsonPropertyName("avg_decoded_fps")]
+    public double AvgDecodedFps { get; set; }
 }
 
 public sealed class FpsStreamSecondsWrapper
@@ -89,12 +137,15 @@ public sealed class TelemetryManager
     private readonly int _activeStreams;
     private readonly object _lock = new();
 
-    private readonly FpsBuckets _windowBuckets = new();
+    private readonly FpsBuckets _paintedBuckets = new();
+    private readonly FpsBuckets _decodedBuckets = new();
     private readonly List<ulong> _prevPaintedFrames = new();
     private readonly List<ulong> _prevDecodedFrames = new();
     private int _secondsInWindow;
     private long _accumulatedActiveStreams;
     private int _activeStreamsSampleCount;
+    private long _accumulatedPaintedFrames;
+    private long _accumulatedDecodedFrames;
 
     public float AggregateFps { get; private set; }
     public int LiveStreams { get; private set; }
@@ -151,32 +202,14 @@ public sealed class TelemetryManager
                 worker.CurrentPaintedFps = deltaP;
                 worker.CurrentDecodedFps = deltaD;
 
-                // Use painted FPS; fallback to decoded FPS in headless Xvfb environments
-                var delta = (paintedCur > 0 || deltaP > 0) ? deltaP : deltaD;
-                worker.CurrentFps = delta;
-                totalFps += delta;
+                // Spec score: unique presented frames. Decode is pipeline throughput.
+                worker.CurrentFps = deltaP;
+                totalFps += deltaP;
 
-                // Categorize active streams into performance buckets
-                if (delta >= 25)
-                {
-                    _windowBuckets.Fps25To30++;
-                }
-                else if (delta >= 20)
-                {
-                    _windowBuckets.Fps20To24++;
-                }
-                else if (delta >= 10)
-                {
-                    _windowBuckets.Fps10To19++;
-                }
-                else if (delta >= 5)
-                {
-                    _windowBuckets.Fps5To9++;
-                }
-                else
-                {
-                    _windowBuckets.FpsUnder5++;
-                }
+                _paintedBuckets.AddSample(deltaP);
+                _decodedBuckets.AddSample(deltaD);
+                _accumulatedPaintedFrames += deltaP;
+                _accumulatedDecodedFrames += deltaD;
             }
 
             AggregateFps = totalFps;
@@ -189,9 +222,12 @@ public sealed class TelemetryManager
             if (_secondsInWindow >= 60)
             {
                 FlushWindow();
-                _windowBuckets.Reset();
+                _paintedBuckets.Reset();
+                _decodedBuckets.Reset();
                 _accumulatedActiveStreams = 0;
                 _activeStreamsSampleCount = 0;
+                _accumulatedPaintedFrames = 0;
+                _accumulatedDecodedFrames = 0;
                 _secondsInWindow = 0;
             }
         }
@@ -203,11 +239,11 @@ public sealed class TelemetryManager
         {
             return new FpsBuckets
             {
-                Fps25To30 = _windowBuckets.Fps25To30,
-                Fps20To24 = _windowBuckets.Fps20To24,
-                Fps10To19 = _windowBuckets.Fps10To19,
-                Fps5To9 = _windowBuckets.Fps5To9,
-                FpsUnder5 = _windowBuckets.FpsUnder5
+                Fps25To30 = _paintedBuckets.Fps25To30,
+                Fps20To24 = _paintedBuckets.Fps20To24,
+                Fps10To19 = _paintedBuckets.Fps10To19,
+                Fps5To9 = _paintedBuckets.Fps5To9,
+                FpsUnder5 = _paintedBuckets.FpsUnder5
             };
         }
     }
@@ -219,6 +255,10 @@ public sealed class TelemetryManager
             ? (int)Math.Round((double)_accumulatedActiveStreams / _activeStreamsSampleCount) 
             : LiveStreams;
 
+        var streamSeconds = _paintedBuckets.TotalStreamSeconds;
+        var avgPainted = streamSeconds > 0 ? (double)_accumulatedPaintedFrames / streamSeconds : 0;
+        var avgDecoded = streamSeconds > 0 ? (double)_accumulatedDecodedFrames / streamSeconds : 0;
+
         var payload = new TelemetryPayload
         {
             Timestamp = timestamp,
@@ -227,20 +267,10 @@ public sealed class TelemetryManager
             HardwareMode = "cpu",
             WindowDurationSeconds = 60,
             ActiveStreams = avgActiveStreams,
-            FpsStreamSeconds = new FpsStreamSecondsWrapper
-            {
-                Acceptable = new AcceptableBuckets
-                {
-                    Fps25To30 = _windowBuckets.Fps25To30,
-                    Fps20To24 = _windowBuckets.Fps20To24
-                },
-                Unacceptable = new UnacceptableBuckets
-                {
-                    Fps10To19 = _windowBuckets.Fps10To19,
-                    Fps5To9 = _windowBuckets.Fps5To9,
-                    FpsUnder5 = _windowBuckets.FpsUnder5
-                }
-            }
+            FpsStreamSeconds = _paintedBuckets.ToWrapper(),
+            DecodeFpsStreamSeconds = _decodedBuckets.ToWrapper(),
+            AvgPaintedFps = Math.Round(avgPainted, 2),
+            AvgDecodedFps = Math.Round(avgDecoded, 2)
         };
 
         var options = new JsonSerializerOptions
@@ -260,8 +290,9 @@ public sealed class TelemetryManager
 
             File.AppendAllText(_logPath, json + Environment.NewLine);
 
-            Console.WriteLine($"[Telemetry] Flushed 60s window ({_windowBuckets.TotalStreamSeconds} stream-seconds) to {_logPath}");
-            Console.WriteLine($"            Acceptable (25-30: {_windowBuckets.Fps25To30}, 20-24: {_windowBuckets.Fps20To24}) | Unacceptable (10-19: {_windowBuckets.Fps10To19}, 5-9: {_windowBuckets.Fps5To9}, <5: {_windowBuckets.FpsUnder5})");
+            Console.WriteLine($"[Telemetry] Flushed 60s window ({streamSeconds} stream-seconds) to {_logPath}");
+            Console.WriteLine($"            Painted  avg={avgPainted:0.0}  Acceptable (25-30: {_paintedBuckets.Fps25To30}, 20-24: {_paintedBuckets.Fps20To24}) | Unacc (<5: {_paintedBuckets.FpsUnder5})");
+            Console.WriteLine($"            Decoded  avg={avgDecoded:0.0}  Acceptable (25-30: {_decodedBuckets.Fps25To30}, 20-24: {_decodedBuckets.Fps20To24}) | Unacc (<5: {_decodedBuckets.FpsUnder5})");
         }
         catch (Exception ex)
         {
