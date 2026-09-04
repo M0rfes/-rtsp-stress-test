@@ -1,7 +1,7 @@
 {
   "name": "rtsp-stress-test-tauri-gpu",
   "version": "1.0.0",
-  "description": "24-Hour 30-stream 1440p 25fps RTSP Video Grid Benchmark (Rust Tauri GPU Zero-Copy Hardware Decode)",
+  "description": "6-Hour 30-stream 1440p 25fps RTSP Video Grid Benchmark (Rust Tauri GPU Zero-Copy Hardware Decode)",
   "type": "module",
   "scripts": {
     "dev:vite": "vite",

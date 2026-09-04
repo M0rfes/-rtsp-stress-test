@@ -118,10 +118,6 @@ void VideoWidget::paintGL() {
 
     if (frame && frame->width > 0 && frame->height > 0) {
         renderFrame(frame, isNew);
-
-        if (m_worker && isNew) {
-            m_worker->incrementPaintedFrames();
-        }
     }
 }
 

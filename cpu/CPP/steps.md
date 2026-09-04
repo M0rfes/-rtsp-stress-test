@@ -1,6 +1,6 @@
 # Automated Linux Deployment & Autostart Guide (C++ Qt6 CPU Benchmark)
 
-This document provides complete step-by-step instructions to deploy the 30-camera RTSP CPU benchmark to an AWS EC2 Ubuntu Linux instance and configure it to **start automatically on instance boot**, running continuously for 24-hour headless stress testing with zero manual intervention.
+This document provides complete step-by-step instructions to deploy the 30-camera RTSP CPU benchmark to an AWS EC2 Ubuntu Linux instance and configure it to **start automatically on instance boot**, running continuously for 6-hour headless stress testing with zero manual intervention.
 
 ---
 
@@ -9,7 +9,7 @@ This document provides complete step-by-step instructions to deploy the 30-camer
 ### Hardware Sizing Matrix
 | Benchmark Role | AWS Instance Type | Specs | Target Purpose |
 | :--- | :--- | :--- | :--- |
-| **Baseline Headroom Benchmark** | **`c7i.8xlarge`** | 32 vCPUs (16 physical cores), 64 GiB DDR5 | Official 24-hour benchmark. Ensures total CPU usage stays strictly below the **85% headroom limit**. |
+| **Baseline Headroom Benchmark** | **`c7i.8xlarge`** | 32 vCPUs (16 physical cores), 64 GiB DDR5 | Official 6-hour benchmark. Ensures total CPU usage stays strictly below the **85% headroom limit**. |
 | **Bare-Minimum Simulation** | **`c7i.4xlarge`** | 16 vCPUs (8 physical cores), 32 GiB DDR5 | Simulates a bare-minimum production 8-core desktop PC. Pushes CPU decoders to ~80%–90% load. |
 | **RTSP Server Box (Box A)** | **`c7i.large`** / **`c6i.large`** | 2 vCPUs, 4 GiB RAM | Dedicated instance serving the 1440p RTSP stream to isolate video streaming from decoding. |
 

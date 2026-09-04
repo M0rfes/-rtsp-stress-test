@@ -1,5 +1,5 @@
 [Unit]
-Description=24-Hour RTSP 30-Stream Video Grid Benchmark (Rust Iced GPU Zero-Copy)
+Description=6-Hour RTSP 30-Stream Video Grid Benchmark (Rust Iced GPU Zero-Copy)
 After=network.target network-online.target
 Wants=network-online.target
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run_benchmark_headless.sh - Runs 24-Hour Benchmark Headless via Xvfb on AWS EC2
+# run_benchmark_headless.sh - Runs 6-Hour Benchmark Headless via Xvfb on AWS EC2
 set -e
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -30,7 +30,7 @@ if [ ! -f "$BINARY" ]; then
   cargo build --release --manifest-path "$PROJECT_ROOT/Cargo.toml"
 fi
 
-echo "=== Launching Headless 24-Hour Rust Iced GPU Benchmark ==="
+echo "=== Launching Headless 6-Hour Rust Iced GPU Benchmark ==="
 echo "Stream Count:       $STREAM_COUNT"
 echo "RTSP URL:           $RTSP_URL"
 echo "Hardware Decoder:   $H264_DECODER"

@@ -27,10 +27,6 @@ void VideoWidget::paintEvent(QPaintEvent* /*event*/) {
 
         // Blit image onto QWidget surface
         painter.drawImage(rect(), img);
-
-        if (m_worker) {
-            m_worker->incrementPaintedFrames();
-        }
     } else {
         // Standby / connecting state
         painter.fillRect(rect(), QColor("#0d1117"));

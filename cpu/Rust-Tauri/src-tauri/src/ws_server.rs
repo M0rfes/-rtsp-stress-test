@@ -9,7 +9,7 @@ use tokio_tungstenite::tungstenite::Message;
 
 use crate::config::BenchmarkConfig;
 use crate::demuxer::StreamBroadcaster;
-use crate::telemetry::{FpsMetricsPayload, SharedTelemetry};
+use crate::telemetry::{FpsMetricsPayload, SharedTelemetry, StreamReport};
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
@@ -18,6 +18,8 @@ enum ClientMessage {
     TickFps {
         #[serde(rename = "streamFpsList")]
         stream_fps_list: Vec<u32>,
+        #[serde(rename = "streamReports", default)]
+        stream_reports: Option<Vec<StreamReport>>,
     },
     #[serde(rename = "log")]
     Log {
@@ -219,10 +221,10 @@ impl VideoWebSocketServer {
                                     ClientMessage::Log { level, message } => {
                                         println!("[Renderer {}] {}", level, message);
                                     }
-                                    ClientMessage::TickFps { stream_fps_list } => {
+                                    ClientMessage::TickFps { stream_fps_list, stream_reports } => {
                                         let (payload, current_sec) = {
                                             let mut telem = self.telemetry.write().unwrap();
-                                            telem.record_tick(&stream_fps_list)
+                                            telem.record_tick(&stream_fps_list, stream_reports.as_deref())
                                         };
 
                                         let tick_msg = TelemetryTickMessage {

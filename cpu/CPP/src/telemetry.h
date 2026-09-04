@@ -52,6 +52,8 @@ private:
     mutable std::mutex m_mutex;
     FpsBuckets m_windowBuckets;
     int m_secondsInWindow = 0;
+    int64_t m_accumulatedActiveStreams = 0;
+    int m_activeStreamsSampleCount = 0;
     float m_aggregateFps = 0.0f;
 
     // Previous frame counts per stream to calculate delta per 1s tick

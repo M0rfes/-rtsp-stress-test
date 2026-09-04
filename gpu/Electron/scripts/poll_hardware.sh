@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# poll_hardware.sh - External OS Hardware Polling for 24-Hour RTSP Video Grid Benchmark (GPU Mode)
+# poll_hardware.sh - External OS Hardware Polling for 6-Hour RTSP Video Grid Benchmark (GPU Mode)
 # Polling interval: 10 seconds
 # Output format: /var/log/benchmark/hardware_metrics.csv
 

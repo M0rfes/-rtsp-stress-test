@@ -184,7 +184,7 @@ source "$HOME/.cargo/env"
 cargo build --release
 ```
 
-### 3. Execute 24-Hour Benchmark (Standalone)
+### 3. Execute 6-Hour Benchmark (Standalone)
 ```bash
 # Optional environment overrides:
 export RTSP_URL="rtsp://10.0.1.50:8554/live"
@@ -194,7 +194,7 @@ export STREAM_COUNT=30
 ```
 This initializes the virtual display buffer (`xvfb-run -a -s "-screen 0 2560x1440x24"`), launches the Iced application with `LIBGL_ALWAYS_SOFTWARE=1`, starts external hardware polling, and flushes metrics.
 
-### 4. Configure 24-Hour Automated Systemd Daemon
+### 4. Configure 6-Hour Automated Systemd Daemon
 To ensure the benchmark survives SSH disconnects and restarts automatically on reboot:
 ```bash
 sudo ./scripts/setup_autostart.sh

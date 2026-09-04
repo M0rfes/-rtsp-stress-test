@@ -1,0 +1,7 @@
+# MediaMTX configuration for 30-stream RTSP benchmark
+api: yes
+protocols: [tcp]
+readBufferCount: 8192
+writeQueueSize: 8192
+paths:
+  all:

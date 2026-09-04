@@ -14,7 +14,7 @@ public static class Program
         try
         {
             Console.WriteLine("===============================================================");
-            Console.WriteLine(" 24-Hour RTSP 30-Video Grid Benchmark (C# Avalonia CPU Decode) ");
+            Console.WriteLine(" 6-Hour RTSP 30-Video Grid Benchmark (C# Avalonia CPU Decode) ");
             Console.WriteLine("===============================================================");
 
             // 1. Raise OS file descriptor limit to avoid EMFILE socket exhaustion

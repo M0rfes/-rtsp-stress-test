@@ -31,6 +31,7 @@ pub struct StreamSlot {
     pub decoded_frames: Arc<AtomicU64>,
     pub painted_frames: Arc<AtomicU64>,
     pub last_sec_frames: Arc<AtomicU32>, // True stream FPS: frames decoded & presented this second
+    pub last_delta_ms: Arc<AtomicU32>,   // Frame pacing delta in milliseconds (f32 bits)
     pub is_connected: Arc<AtomicBool>,
     pub resolution: Arc<RwLock<(u32, u32)>>,
 }
@@ -57,6 +58,7 @@ impl StreamSlot {
             decoded_frames: Arc::new(AtomicU64::new(0)),
             painted_frames: Arc::new(AtomicU64::new(0)),
             last_sec_frames: Arc::new(AtomicU32::new(0)),
+            last_delta_ms: Arc::new(AtomicU32::new(0)),
             is_connected: Arc::new(AtomicBool::new(false)),
             resolution: Arc::new(RwLock::new((default_w, default_h))),
         }
@@ -72,6 +74,11 @@ impl StreamSlot {
 
     pub fn take_last_sec_frames(&self) -> u32 {
         self.last_sec_frames.swap(0, Ordering::Relaxed)
+    }
+
+    #[allow(dead_code)]
+    pub fn get_last_delta_ms(&self) -> f32 {
+        f32::from_bits(self.last_delta_ms.load(Ordering::Relaxed))
     }
 }
 
@@ -126,10 +133,18 @@ impl StreamManager {
         self.is_running.store(false, Ordering::SeqCst);
     }
 
+    #[allow(dead_code)]
     pub fn collect_fps_tick(&self) -> Vec<u32> {
         self.slots
             .iter()
             .map(|slot| slot.take_last_sec_frames())
+            .collect()
+    }
+
+    pub fn collect_metrics_tick(&self) -> Vec<(u32, bool)> {
+        self.slots
+            .iter()
+            .map(|slot| (slot.take_last_sec_frames(), slot.is_connected.load(Ordering::Relaxed)))
             .collect()
     }
 }
@@ -177,13 +192,13 @@ fn run_decoder_loop(slot: Arc<StreamSlot>, is_running: Arc<AtomicBool>) {
                 Ok(pipe) => pipe,
                 Err(_) => {
                     eprintln!("[Decoder {}] Launched element is not a gst::Pipeline", stream_id);
-                    std::thread::sleep(Duration::from_secs(2));
+                    std::thread::sleep(Duration::from_secs(3));
                     continue;
                 }
             },
             Err(e) => {
                 eprintln!("[Decoder {}] Failed to create pipeline: {}", stream_id, e);
-                std::thread::sleep(Duration::from_secs(2));
+                std::thread::sleep(Duration::from_secs(3));
                 continue;
             }
         };
@@ -193,25 +208,28 @@ fn run_decoder_loop(slot: Arc<StreamSlot>, is_running: Arc<AtomicBool>) {
                 Ok(sink) => sink,
                 Err(_) => {
                     eprintln!("[Decoder {}] 'sink' element is not an AppSink", stream_id);
-                    std::thread::sleep(Duration::from_secs(2));
+                    std::thread::sleep(Duration::from_secs(3));
                     continue;
                 }
             },
             None => {
                 eprintln!("[Decoder {}] Could not find 'sink' element", stream_id);
-                std::thread::sleep(Duration::from_secs(2));
+                std::thread::sleep(Duration::from_secs(3));
                 continue;
             }
         };
 
         if let Err(e) = pipeline.set_state(gst::State::Playing) {
             eprintln!("[Decoder {}] Failed to set Playing state: {}", stream_id, e);
-            std::thread::sleep(Duration::from_secs(2));
+            std::thread::sleep(Duration::from_secs(3));
             continue;
         }
 
         slot.is_connected.store(true, Ordering::Relaxed);
         println!("[Decoder {}] Pipeline running for {} (render size: {}x{})", stream_id, rtsp_url, tile_w, tile_h);
+
+        let mut last_pts: Option<gst::ClockTime> = None;
+        let mut last_frame_instant: Option<Instant> = None;
 
         while is_running.load(Ordering::Relaxed) {
             match appsink.pull_sample() {
@@ -220,6 +238,23 @@ fn run_decoder_loop(slot: Arc<StreamSlot>, is_running: Arc<AtomicBool>) {
                         Some(b) => b,
                         None => continue,
                     };
+
+                    // Effective FPS: Presentation Timestamp (PTS) uniqueness check
+                    let pts = buffer.pts();
+                    if let (Some(cur), Some(last)) = (pts, last_pts) {
+                        if cur == last {
+                            continue;
+                        }
+                    }
+                    last_pts = pts;
+
+                    // Frame pacing delta timing (tn - tn-1)
+                    let now = Instant::now();
+                    if let Some(prev) = last_frame_instant {
+                        let delta_ms = now.duration_since(prev).as_secs_f32() * 1000.0;
+                        slot.last_delta_ms.store(delta_ms.to_bits(), Ordering::Relaxed);
+                    }
+                    last_frame_instant = Some(now);
 
                     let map = match buffer.map_readable() {
                         Ok(m) => m,
@@ -274,10 +309,11 @@ fn run_decoder_loop(slot: Arc<StreamSlot>, is_running: Arc<AtomicBool>) {
         }
 
         slot.is_connected.store(false, Ordering::Relaxed);
+        slot.frame.store(Arc::new(None));
         let _ = pipeline.set_state(gst::State::Null);
 
         if is_running.load(Ordering::SeqCst) {
-            std::thread::sleep(Duration::from_millis(1000));
+            std::thread::sleep(Duration::from_secs(3));
         }
     }
 

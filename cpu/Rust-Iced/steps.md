@@ -137,7 +137,7 @@ cargo build --release
 The optimized binary is compiled at:
 `/opt/rtsp-stress-test/cpu/Rust-Iced/target/release/rtsp-stress-test-iced-cpu`
 
-### Step 4: Configure and Start 24-Hour Systemd Service
+### Step 4: Configure and Start 6-Hour Systemd Service
 ```bash
 sudo ./scripts/setup_autostart.sh
 ```

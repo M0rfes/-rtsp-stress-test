@@ -62,9 +62,13 @@ export class VideoWebSocketServer {
     ws.on('message', (data: Buffer | string) => {
       try {
         const msg = JSON.parse(data.toString());
-        if (msg.type === 'tick_fps' && Array.isArray(msg.streamFpsList)) {
+        if (msg.type === 'tick_fps') {
           // Record the 1-second tick into telemetry manager
-          telemetry.recordTick(msg.streamFpsList);
+          if (Array.isArray(msg.streamReports)) {
+            telemetry.recordTick(msg.streamReports);
+          } else if (Array.isArray(msg.streamFpsList)) {
+            telemetry.recordTick(msg.streamFpsList);
+          }
         }
       } catch (err) {
         console.error('[WSS Control] Failed to parse control message:', err);

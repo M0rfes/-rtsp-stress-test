@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
     AppConfig config = AppConfig::loadFromArgsAndEnv(argc, argv);
 
     std::cout << "=======================================================\n"
-              << " 24-Hour RTSP Video Grid Benchmark (C++ Qt6 CPU Decode)\n"
+              << " 6-Hour RTSP Video Grid Benchmark (C++ Qt6 CPU Decode)\n"
               << "=======================================================\n"
               << " Target RTSP URL:   " << config.rtspUrl << "\n"
               << " Active Streams:    " << config.streamCount << "\n"

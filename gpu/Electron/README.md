@@ -107,7 +107,7 @@ sudo mkdir -p /var/log/benchmark
 sudo chmod 777 /var/log/benchmark
 ```
 
-### 3. Execute 24-Hour Benchmark
+### 3. Execute 6-Hour Benchmark
 ```bash
 cd gpu/Electron
 npm install

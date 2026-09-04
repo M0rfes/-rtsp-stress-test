@@ -41,12 +41,24 @@ pub struct FpsMetricsPayload {
     pub fps_stream_seconds: FpsStreamSeconds,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamReport {
+    #[serde(rename = "streamId")]
+    pub stream_id: usize,
+    pub fps: u32,
+    #[serde(rename = "isConnected")]
+    pub is_connected: bool,
+    #[serde(rename = "lastDeltaMs", default)]
+    pub last_delta_ms: f64,
+}
+
 pub struct TelemetryManager {
     config: BenchmarkConfig,
     log_path: PathBuf,
     current_buckets: FpsStreamSeconds,
     tick_count_in_window: u32,
     total_flushes: u64,
+    accumulated_active_streams: usize,
     active_streams: usize,
 }
 
@@ -61,6 +73,7 @@ impl TelemetryManager {
             current_buckets: FpsStreamSeconds::default(),
             tick_count_in_window: 0,
             total_flushes: 0,
+            accumulated_active_streams: 0,
             active_streams,
         }
     }
@@ -69,23 +82,57 @@ impl TelemetryManager {
         self.log_path.to_string_lossy().to_string()
     }
 
-    pub fn record_tick(&mut self, stream_fps_list: &[u32]) -> (FpsMetricsPayload, u32) {
+    pub fn record_tick(
+        &mut self,
+        stream_fps_list: &[u32],
+        stream_reports: Option<&[StreamReport]>,
+    ) -> (FpsMetricsPayload, u32) {
         self.tick_count_in_window += 1;
-        self.active_streams = stream_fps_list.len();
+        let mut active_count = 0;
 
-        for &fps in stream_fps_list {
-            if fps >= 25 {
-                self.current_buckets.acceptable.fps_25_to_30 += 1;
-            } else if fps >= 20 {
-                self.current_buckets.acceptable.fps_20_to_24 += 1;
-            } else if fps >= 10 {
-                self.current_buckets.unacceptable.fps_10_to_19 += 1;
-            } else if fps >= 5 {
-                self.current_buckets.unacceptable.fps_5_to_9 += 1;
-            } else {
-                self.current_buckets.unacceptable.under_5_fps += 1;
+        if let Some(reports) = stream_reports {
+            for report in reports {
+                if report.is_connected {
+                    active_count += 1;
+                    let fps = report.fps;
+                    if fps >= 25 {
+                        self.current_buckets.acceptable.fps_25_to_30 += 1;
+                    } else if fps >= 20 {
+                        self.current_buckets.acceptable.fps_20_to_24 += 1;
+                    } else if fps >= 10 {
+                        self.current_buckets.unacceptable.fps_10_to_19 += 1;
+                    } else if fps >= 5 {
+                        self.current_buckets.unacceptable.fps_5_to_9 += 1;
+                    } else {
+                        self.current_buckets.unacceptable.under_5_fps += 1;
+                    }
+                }
+            }
+        } else {
+            for &fps in stream_fps_list {
+                if fps > 0 {
+                    active_count += 1;
+                }
+                if fps >= 25 {
+                    self.current_buckets.acceptable.fps_25_to_30 += 1;
+                } else if fps >= 20 {
+                    self.current_buckets.acceptable.fps_20_to_24 += 1;
+                } else if fps >= 10 {
+                    self.current_buckets.unacceptable.fps_10_to_19 += 1;
+                } else if fps >= 5 {
+                    self.current_buckets.unacceptable.fps_5_to_9 += 1;
+                } else {
+                    self.current_buckets.unacceptable.under_5_fps += 1;
+                }
             }
         }
+
+        self.accumulated_active_streams += active_count;
+        self.active_streams = if self.tick_count_in_window > 0 {
+            (self.accumulated_active_streams as f64 / self.tick_count_in_window as f64).round() as usize
+        } else {
+            self.config.stream_count
+        };
 
         let payload = self.build_payload();
         let current_sec = self.tick_count_in_window;
@@ -93,6 +140,7 @@ impl TelemetryManager {
         if self.tick_count_in_window >= self.config.window_duration_seconds {
             self.flush_to_disk(&payload);
             self.current_buckets = FpsStreamSeconds::default();
+            self.accumulated_active_streams = 0;
             self.tick_count_in_window = 0;
         }
 

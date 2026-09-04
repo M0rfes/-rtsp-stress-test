@@ -137,7 +137,7 @@ npm install
 npm run build
 ```
 
-### 3. Execute 24-Hour Benchmark (Standalone)
+### 3. Execute 6-Hour Benchmark (Standalone)
 ```bash
 # Optional: specify remote RTSP URL or stream count
 export RTSP_URL="rtsp://10.0.1.50:8554/live"
@@ -147,7 +147,7 @@ export STREAM_COUNT=30
 ```
 This launches the benchmark application inside an Xvfb virtual display (`2560x1440x24`), starts external hardware polling, and logs all telemetry.
 
-### 4. Configure 24-Hour Automated Systemd Daemon
+### 4. Configure 6-Hour Automated Systemd Daemon
 To ensure the benchmark survives SSH disconnects and restarts automatically on reboot:
 ```bash
 sudo ./scripts/setup_autostart.sh

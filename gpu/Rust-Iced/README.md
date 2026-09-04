@@ -105,7 +105,7 @@ cargo run --release
 ./scripts/run_benchmark_headless.sh
 ```
 
-### 3. 24-Hour Systemd Daemon
+### 3. 6-Hour Systemd Daemon
 ```bash
 sudo ./scripts/setup_autostart.sh
 ```

@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
     auto hwAccel = HwAccelManager::create(config.hwAccel, config.streamCount);
 
     std::cout << "=================================================================\n"
-              << " 24-Hour RTSP Video Grid Benchmark (C++ Qt6 GPU Zero-Copy Decode)\n"
+              << " 6-Hour RTSP Video Grid Benchmark (C++ Qt6 GPU Zero-Copy Decode)\n"
               << "=================================================================\n"
               << " Target RTSP URL:       " << config.rtspUrl << "\n"
               << " Active Streams:        " << config.streamCount << "\n"

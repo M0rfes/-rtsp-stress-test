@@ -1,6 +1,6 @@
 # Operations, Debugging & Troubleshooting Runbook (C++ Qt6 CPU Benchmark)
 
-This runbook provides complete operational procedures for deploying, verifying, debugging, and diagnosing the 24-hour RTSP CPU benchmark on AWS EC2 Ubuntu Linux using native C++ and Qt6 (`libavcodec` software decoding).
+This runbook provides complete operational procedures for deploying, verifying, debugging, and diagnosing the 6-hour RTSP CPU benchmark on AWS EC2 Ubuntu Linux using native C++ and Qt6 (`libavcodec` software decoding).
 
 ---
 
@@ -110,7 +110,7 @@ ls -lh /tmp/grid_screenshot.png
 You can SCP `/tmp/grid_screenshot.png` to your workstation to verify that all 30 video tiles are actively painting.
 
 ### D. Core Dump & Crash Analysis (GDB)
-If a segmentation fault or crash occurs under 24-hour continuous load:
+If a segmentation fault or crash occurs under 6-hour continuous load:
 ```bash
 # Enable core dumps
 ulimit -c unlimited

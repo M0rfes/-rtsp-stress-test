@@ -50,6 +50,20 @@ bool StreamWorker::isInterrupted() const {
     return m_stopRequested.load(std::memory_order_relaxed) || isInterruptionRequested();
 }
 
+void StreamWorker::recordPresentedFrame(int64_t pts) {
+    if (pts != -1) {
+        m_currentPts.store(pts, std::memory_order_relaxed);
+    }
+    auto now = std::chrono::steady_clock::now();
+    auto nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
+    int64_t prevNs = m_lastPresentedTimestampNs.exchange(nowNs, std::memory_order_acq_rel);
+    if (prevNs > 0) {
+        float deltaMs = static_cast<float>(nowNs - prevNs) / 1000000.0f;
+        m_lastDeltaMs.store(deltaMs, std::memory_order_relaxed);
+    }
+    m_paintedFrames.fetch_add(1, std::memory_order_relaxed);
+}
+
 AVFrame* StreamWorker::acquireFrame(bool* outIsNew) {
     bool isNew = m_hasNewFrame.exchange(false, std::memory_order_acq_rel);
     if (isNew) {
@@ -59,6 +73,7 @@ AVFrame* StreamWorker::acquireFrame(bool* outIsNew) {
                 av_frame_free(&m_consumedFrame);
             }
             m_consumedFrame = newFrame;
+            recordPresentedFrame(m_consumedFrame->pts);
         }
     }
     if (outIsNew) {
@@ -94,7 +109,7 @@ void StreamWorker::run() {
             m_isConnected.store(false, std::memory_order_release);
             avformat_close_input(&fmtCtx);
             if (!isInterrupted()) {
-                msleep(1000);
+                msleep(3000);
             }
             continue;
         }
@@ -103,7 +118,7 @@ void StreamWorker::run() {
             m_isConnected.store(false, std::memory_order_release);
             avformat_close_input(&fmtCtx);
             if (!isInterrupted()) {
-                msleep(1000);
+                msleep(3000);
             }
             continue;
         }
@@ -113,7 +128,7 @@ void StreamWorker::run() {
             m_isConnected.store(false, std::memory_order_release);
             avformat_close_input(&fmtCtx);
             if (!isInterrupted()) {
-                msleep(1000);
+                msleep(3000);
             }
             continue;
         }
@@ -125,7 +140,7 @@ void StreamWorker::run() {
             m_isConnected.store(false, std::memory_order_release);
             avformat_close_input(&fmtCtx);
             if (!isInterrupted()) {
-                msleep(1000);
+                msleep(3000);
             }
             continue;
         }
@@ -135,7 +150,7 @@ void StreamWorker::run() {
             m_isConnected.store(false, std::memory_order_release);
             avformat_close_input(&fmtCtx);
             if (!isInterrupted()) {
-                msleep(1000);
+                msleep(3000);
             }
             continue;
         }
@@ -145,7 +160,7 @@ void StreamWorker::run() {
             avcodec_free_context(&codecCtx);
             avformat_close_input(&fmtCtx);
             if (!isInterrupted()) {
-                msleep(1000);
+                msleep(3000);
             }
             continue;
         }
@@ -171,7 +186,7 @@ void StreamWorker::run() {
             avcodec_free_context(&codecCtx);
             avformat_close_input(&fmtCtx);
             if (!isInterrupted()) {
-                msleep(1000);
+                msleep(3000);
             }
             continue;
         }
@@ -209,6 +224,7 @@ void StreamWorker::run() {
                                 if (w > 0 && h > 0) {
                                     m_width.store(w, std::memory_order_relaxed);
                                     m_height.store(h, std::memory_order_relaxed);
+                                    m_currentPts.store(frame->pts, std::memory_order_relaxed);
 
                                     if (m_hwAccel && m_hwAccel->isInitialized() &&
                                         frame->format == m_hwAccel->hwPixFormat()) {
@@ -239,6 +255,7 @@ void StreamWorker::run() {
                             if (w > 0 && h > 0) {
                                 m_width.store(w, std::memory_order_relaxed);
                                 m_height.store(h, std::memory_order_relaxed);
+                                m_currentPts.store(frame->pts, std::memory_order_relaxed);
 
                                 if (m_hwAccel && m_hwAccel->isInitialized() &&
                                     frame->format == m_hwAccel->hwPixFormat()) {
@@ -273,9 +290,13 @@ void StreamWorker::run() {
         m_isConnected.store(false, std::memory_order_release);
         avcodec_free_context(&codecCtx);
         avformat_close_input(&fmtCtx);
+        AVFrame* stale = m_sharedFrame.exchange(nullptr, std::memory_order_acq_rel);
+        if (stale) {
+            av_frame_free(&stale);
+        }
 
         if (!isInterrupted()) {
-            msleep(500);
+            msleep(3000);
         }
     }
 

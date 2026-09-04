@@ -30,7 +30,10 @@ public:
     bool isConnected() const { return m_isConnected.load(std::memory_order_relaxed); }
     uint64_t decodedFrames() const { return m_decodedFrames.load(std::memory_order_relaxed); }
     uint64_t paintedFrames() const { return m_paintedFrames.load(std::memory_order_relaxed); }
-    void incrementPaintedFrames() { m_paintedFrames.fetch_add(1, std::memory_order_relaxed); }
+    int64_t currentPts() const { return m_currentPts.load(std::memory_order_relaxed); }
+    float lastDeltaMs() const { return m_lastDeltaMs.load(std::memory_order_relaxed); }
+    void incrementPaintedFrames() { recordPresentedFrame(m_currentPts.load(std::memory_order_relaxed)); }
+    void recordPresentedFrame(int64_t pts);
 
     float currentFps() const { return m_currentFps.load(std::memory_order_relaxed); }
     void setCurrentFps(float fps) { m_currentFps.store(fps, std::memory_order_relaxed); }
@@ -63,6 +66,9 @@ private:
     // Metrics
     std::atomic<uint64_t> m_decodedFrames{0};
     std::atomic<uint64_t> m_paintedFrames{0};
+    std::atomic<int64_t> m_currentPts{-1};
+    std::atomic<int64_t> m_lastPresentedTimestampNs{0};
+    std::atomic<float> m_lastDeltaMs{0.0f};
     std::atomic<float> m_currentFps{0.0f};
 
     // FFmpeg state

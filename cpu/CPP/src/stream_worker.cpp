@@ -89,9 +89,21 @@ void StreamWorker::freeSwsContext() {
     m_swsFormat = AV_PIX_FMT_NONE;
 }
 
+void StreamWorker::recordPresentedFrame(int64_t pts) {
+    auto now = std::chrono::steady_clock::now();
+    auto nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
+    int64_t prevNs = m_lastPresentedTimestampNs.exchange(nowNs, std::memory_order_acq_rel);
+    if (prevNs > 0) {
+        float deltaMs = static_cast<float>(nowNs - prevNs) / 1000000.0f;
+        m_lastDeltaMs.store(deltaMs, std::memory_order_relaxed);
+    }
+    m_paintedFrames.fetch_add(1, std::memory_order_relaxed);
+}
+
 uint8_t* StreamWorker::acquireFrame(int& outWidth, int& outHeight) {
     if (m_hasNewFrame.exchange(false, std::memory_order_acq_rel)) {
         m_consumerIndex = m_sharedIndex.exchange(m_consumerIndex, std::memory_order_acq_rel);
+        recordPresentedFrame(m_currentPts.load(std::memory_order_relaxed));
     }
     outWidth = m_width.load(std::memory_order_acquire);
     outHeight = m_height.load(std::memory_order_acquire);
@@ -125,7 +137,7 @@ void StreamWorker::run() {
             m_isConnected.store(false, std::memory_order_release);
             avformat_close_input(&fmtCtx);
             if (!isInterrupted()) {
-                msleep(1000);
+                msleep(3000);
             }
             continue;
         }
@@ -134,7 +146,7 @@ void StreamWorker::run() {
             m_isConnected.store(false, std::memory_order_release);
             avformat_close_input(&fmtCtx);
             if (!isInterrupted()) {
-                msleep(1000);
+                msleep(3000);
             }
             continue;
         }
@@ -144,7 +156,7 @@ void StreamWorker::run() {
             m_isConnected.store(false, std::memory_order_release);
             avformat_close_input(&fmtCtx);
             if (!isInterrupted()) {
-                msleep(1000);
+                msleep(3000);
             }
             continue;
         }
@@ -156,7 +168,7 @@ void StreamWorker::run() {
             m_isConnected.store(false, std::memory_order_release);
             avformat_close_input(&fmtCtx);
             if (!isInterrupted()) {
-                msleep(1000);
+                msleep(3000);
             }
             continue;
         }
@@ -166,7 +178,7 @@ void StreamWorker::run() {
             m_isConnected.store(false, std::memory_order_release);
             avformat_close_input(&fmtCtx);
             if (!isInterrupted()) {
-                msleep(1000);
+                msleep(3000);
             }
             continue;
         }
@@ -176,7 +188,7 @@ void StreamWorker::run() {
             avcodec_free_context(&codecCtx);
             avformat_close_input(&fmtCtx);
             if (!isInterrupted()) {
-                msleep(1000);
+                msleep(3000);
             }
             continue;
         }
@@ -191,7 +203,7 @@ void StreamWorker::run() {
             avcodec_free_context(&codecCtx);
             avformat_close_input(&fmtCtx);
             if (!isInterrupted()) {
-                msleep(1000);
+                msleep(3000);
             }
             continue;
         }
@@ -236,6 +248,8 @@ void StreamWorker::run() {
                             );
 
                             // Lock-free triple buffer publish
+                            int64_t pts = (frame->pts != AV_NOPTS_VALUE) ? frame->pts : frame->best_effort_timestamp;
+                            m_currentPts.store(pts, std::memory_order_release);
                             m_producerIndex = m_sharedIndex.exchange(m_producerIndex, std::memory_order_acq_rel);
                             m_hasNewFrame.store(true, std::memory_order_release);
                             m_decodedFrames.fetch_add(1, std::memory_order_relaxed);
@@ -251,9 +265,10 @@ void StreamWorker::run() {
         m_isConnected.store(false, std::memory_order_release);
         avcodec_free_context(&codecCtx);
         avformat_close_input(&fmtCtx);
+        freeSwsContext();
 
         if (!isInterrupted()) {
-            msleep(500); // Backoff before reconnecting
+            msleep(3000); // 3-second backoff before reconnecting per Master Spec
         }
     }
 

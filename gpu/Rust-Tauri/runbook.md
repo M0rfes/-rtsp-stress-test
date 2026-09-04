@@ -1,6 +1,6 @@
 # Operations & Troubleshooting Runbook (Rust Tauri GPU Zero-Copy Benchmark)
 
-This runbook provides complete procedures for operating, monitoring, verifying, and debugging the 24-hour RTSP GPU Zero-Copy benchmark running under systemd or headless CLI on AWS EC2 Ubuntu Linux (e.g. `g6.xlarge`, `g4dn.xlarge`), with local desktop debugging notes for macOS.
+This runbook provides complete procedures for operating, monitoring, verifying, and debugging the 6-hour RTSP GPU Zero-Copy benchmark running under systemd or headless CLI on AWS EC2 Ubuntu Linux (e.g. `g6.xlarge`, `g4dn.xlarge`), with local desktop debugging notes for macOS.
 
 ---
 

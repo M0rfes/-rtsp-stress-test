@@ -63,10 +63,11 @@ impl BenchmarkApp {
                 self.render_tick_count += 1;
             }
             Message::TelemetryTick => {
-                let fps_list = self.stream_manager.collect_fps_tick();
+                let metrics = self.stream_manager.collect_metrics_tick();
+                let fps_list: Vec<u32> = metrics.iter().map(|&(f, _)| f).collect();
                 let (payload, tick_in_win) = {
                     let mut tel = self.telemetry.write().unwrap();
-                    tel.record_tick(&fps_list)
+                    tel.record_tick(&metrics)
                 };
 
                 let total_flushes = self.telemetry.read().unwrap().get_total_flushes();
@@ -134,7 +135,7 @@ fn main() -> iced::Result {
     }
 
     let config = BenchmarkConfig::from_env();
-    println!("=== 24-Hour RTSP Video Grid Benchmark (Rust Iced CPU) ===");
+    println!("=== 6-Hour RTSP Video Grid Benchmark (Rust Iced CPU) ===");
     println!("Machine ID:        {}", config.machine_id);
     println!("Stream Count:      {}", config.stream_count);
     println!("Target RTSP URL:   {}", config.rtsp_url);

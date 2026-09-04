@@ -94,13 +94,15 @@ export const App: React.FC = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       const streamFpsList: number[] = [];
+      const streamReports: { streamId: number; fps: number; isConnected: boolean; lastDeltaMs: number }[] = [];
 
       for (let i = 0; i < streamCount; i++) {
         const player = playerRefs.current.get(i);
-        const fps = player ? player.getFpsAndReset() : 0;
-        streamFpsList.push(fps);
+        const report = player ? player.getReportAndReset() : { streamId: i, fps: 0, isConnected: false, lastDeltaMs: 0 };
+        streamFpsList.push(report.fps);
+        streamReports.push(report);
         if (player) {
-          player.updateFpsDisplay(fps);
+          player.updateFpsDisplay(report.fps);
         }
       }
 
@@ -110,6 +112,7 @@ export const App: React.FC = () => {
           JSON.stringify({
             type: 'tick_fps',
             streamFpsList,
+            streamReports,
           })
         );
       }

@@ -88,13 +88,15 @@ fn run_pipeline_loop(
                 Ok(pipeline) => pipeline,
                 Err(_) => {
                     eprintln!("[Demuxer {}] Element is not a gst::Pipeline", stream_id);
-                    std::thread::sleep(std::time::Duration::from_secs(2));
+                    cached_codec_data = None;
+                    std::thread::sleep(std::time::Duration::from_secs(3));
                     continue;
                 }
             },
             Err(err) => {
                 eprintln!("[Demuxer {}] Failed to create pipeline: {}", stream_id, err);
-                std::thread::sleep(std::time::Duration::from_secs(2));
+                cached_codec_data = None;
+                std::thread::sleep(std::time::Duration::from_secs(3));
                 continue;
             }
         };
@@ -105,14 +107,16 @@ fn run_pipeline_loop(
                 Err(_) => {
                     eprintln!("[Demuxer {}] Failed to cast 'sink' to AppSink", stream_id);
                     let _ = pipeline.set_state(gst::State::Null);
-                    std::thread::sleep(std::time::Duration::from_secs(2));
+                    cached_codec_data = None;
+                    std::thread::sleep(std::time::Duration::from_secs(3));
                     continue;
                 }
             },
             None => {
                 eprintln!("[Demuxer {}] 'sink' element not found in pipeline", stream_id);
                 let _ = pipeline.set_state(gst::State::Null);
-                std::thread::sleep(std::time::Duration::from_secs(2));
+                cached_codec_data = None;
+                std::thread::sleep(std::time::Duration::from_secs(3));
                 continue;
             }
         };
@@ -120,7 +124,8 @@ fn run_pipeline_loop(
         if let Err(err) = pipeline.set_state(gst::State::Playing) {
             eprintln!("[Demuxer {}] Failed to set pipeline to Playing: {}", stream_id, err);
             let _ = pipeline.set_state(gst::State::Null);
-            std::thread::sleep(std::time::Duration::from_secs(2));
+            cached_codec_data = None;
+            std::thread::sleep(std::time::Duration::from_secs(3));
             continue;
         }
 
@@ -178,15 +183,16 @@ fn run_pipeline_loop(
                     }
                 }
                 Err(err) => {
-                    eprintln!("[Demuxer {}] appsink pull_sample error: {:?}. Reconnecting in 2s...", stream_id, err);
+                    eprintln!("[Demuxer {}] appsink pull_sample error: {:?}. Reconnecting in 3s...", stream_id, err);
                     break;
                 }
             }
         }
 
         let _ = pipeline.set_state(gst::State::Null);
+        cached_codec_data = None;
         if is_running.load(Ordering::SeqCst) {
-            std::thread::sleep(std::time::Duration::from_secs(2));
+            std::thread::sleep(std::time::Duration::from_secs(3));
         }
     }
 

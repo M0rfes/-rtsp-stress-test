@@ -91,9 +91,13 @@ export class RtspDemuxer extends EventEmitter {
 
       this.ffmpegProcess.on('close', (code) => {
         this.ffmpegProcess = null;
+        this.buffer = Buffer.alloc(0);
+        this.currentAuBuffers = [];
+        this.hasVclInCurrentAu = false;
+        this.currentAuHasKey = false;
         if (this.isRunning) {
-          console.warn(`[Demuxer ${this.streamId}] FFmpeg exited with code ${code}. Reconnecting in 2s...`);
-          this.reconnectTimer = setTimeout(() => this.spawnFfmpeg(), 2000);
+          console.warn(`[Demuxer ${this.streamId}] FFmpeg exited with code ${code}. Reconnecting in 3s...`);
+          this.reconnectTimer = setTimeout(() => this.spawnFfmpeg(), 3000);
         }
       });
 

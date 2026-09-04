@@ -67,7 +67,7 @@ cmake --build build -j$(nproc)
 The optimized executable is generated at `build/rtsp-stress-test-cpp-gpu`.
 
 ### Step 4: Pre-Flight Headless Smoke Test (2 Minutes)
-Before enabling the 24-hour daemon, run the headless benchmark interactively for 1–2 minutes to verify NVIDIA CUDA acceleration, Xvfb resolution, and the first 60-second JSON flush:
+Before enabling the 6-hour daemon, run the headless benchmark interactively for 1–2 minutes to verify NVIDIA CUDA acceleration, Xvfb resolution, and the first 60-second JSON flush:
 ```bash
 # Ensure log directory exists
 sudo mkdir -p /var/log/benchmark && sudo chown -R $USER:$USER /var/log/benchmark
@@ -84,7 +84,7 @@ xvfb-run -a -s "-screen 0 2560x1440x24" ./build/rtsp-stress-test-cpp-gpu \
 - Check that the 60-second flush outputs `Acceptable (25-30: 1800, 20-24: 0)`.
 - Press `Ctrl+C` to terminate the test run.
 
-### Step 5: Configure 24-Hour Automated Systemd Daemon
+### Step 5: Configure 6-Hour Automated Systemd Daemon
 Install and activate the automated systemd daemon that starts on instance boot:
 ```bash
 sudo ./scripts/setup_autostart.sh
@@ -108,7 +108,7 @@ watch -n 2 "nvidia-smi --query-gpu=utilization.gpu,utilization.decoder,memory.us
 ```
 
 ### Step 7: Post-Benchmark Stopping & Log Archival
-When the 24-hour benchmark completes:
+When the 6-hour benchmark completes:
 ```bash
 # Stop the daemon
 sudo systemctl stop rtsp-benchmark-cpp-gpu.service

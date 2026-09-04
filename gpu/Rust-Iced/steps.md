@@ -64,7 +64,7 @@ source "$HOME/.cargo/env"
 cargo build --release
 ```
 
-### Step 4: Configure 24-Hour Automated Systemd Daemon
+### Step 4: Configure 6-Hour Automated Systemd Daemon
 ```bash
 sudo ./scripts/setup_autostart.sh
 ```

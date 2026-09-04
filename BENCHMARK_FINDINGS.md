@@ -40,22 +40,84 @@
 
 ---
 
-## 3. Telemetry & Log Path Fallbacks
+## 3. Master Specification: 6-Hour Strategy, Reconnection Loop, & Effective FPS Telemetry
 
-### Dual Telemetry Rules
-1. **Internal Time-in-State (`fps_metrics.log`):**
-   - Exact schema defined in `README.md`.
-   - 1-second tick: categorize each stream's painted frame count into buckets (`25_to_30_fps`, `20_to_24_fps`, `10_to_19_fps`, `5_to_9_fps`, `under_5_fps`).
-   - 60-second flush: accumulates 1,800 stream-seconds (30 streams × 60s), appends the JSON object to disk, and immediately resets counters to zero.
-2. **External Hardware Polling (`hardware_metrics.csv`):**
-   - Polled by background script (`scripts/poll_hardware.sh`) every 10 seconds.
-   - Format: `timestamp,pid,cpu_percent,ram_rss_mb,gpu_vram_mb,gpu_decoder_percent`.
-   - In CPU benchmarks, GPU fields must be `0` or empty.
+### 3.1 The 6-Hour Execution Strategy (Two Phases)
+The benchmark runs for exactly **6 hours per implementation**:
+* **Phase 1: Steady State (Hours 0 to 3):**
+  - RTSP server delivers 30 continuous, uninterrupted streams.
+  - **Goal:** Allow runtime compilers (V8 JIT, .NET Tiered Compilation) and memory allocations to settle into equilibrium; establish baseline metrics under peak steady-state load.
+* **Phase 2: Churn & Recovery (Hours 3 to 6):**
+  - RTSP server randomly drops and restarts streams.
+  - **Goal:** Test pipeline disposal and memory leak resilience. Frameworks must cleanly destroy stale GPU textures, unbind decoder contexts, and avoid Garbage Collection (GC) pauses or OOM conditions.
+* **Phase 2 Active Streams Accounting Rule:**
+  - **Do NOT count frames or log bucket seconds for dropped / inactive streams.**
+  - Telemetry must strictly record Effective FPS and accumulate stream-seconds for **active (connected) streams only**.
+  - Disconnected streams undergoing reconnection backoff must not pollute the unacceptable FPS buckets with false zeroes.
 
-### Permissions & Path Fallback
-* The specified default path is `/var/log/benchmark/`.
-* On developer machines (macOS) or non-root runners, `/var/log/` is not writable by standard users.
-* All framework implementations should attempt `/var/log/benchmark/` first, but gracefully fallback to `./logs/` if write access is denied.
+### 3.2 Reconnection Architecture (Universal Requirement)
+* Raw multimedia libraries (FFmpeg, GStreamer, WebCodecs) emit EOF or socket errors and halt when connections are dropped.
+* **Mandatory Pattern:** Every framework must implement an automatic reconnection loop.
+  1. On disconnect or decode failure, **completely dispose and free** the previous pipeline/decoder object, format contexts, and textures.
+  2. Wait **3 seconds** (`Thread.Sleep(3000)`, `tokio::time::sleep`, `setTimeout`).
+  3. Re-initialize and reconnect from scratch.
+* Failure to fully destroy decoder handles or GPU textures during Phase 2 will cause file descriptor starvation (`EMFILE`) or VRAM/RAM OOM.
+
+### 3.3 "Effective FPS" Telemetry Standard & Frame Pacing
+
+#### Why Naive UI Counters Lie
+* **The Qt Under-Reporting Trap (10 FPS when actually smooth):**
+  1. *Event Loop Compression (`QWidget::update()` Coalescing):* Calling `update()` posts `QEvent::UpdateRequest`. Qt explicitly bundles multiple pending paint requests into one. Even if 30 streams push 750 updates/sec, Qt only dispatches `paintEvent()` 10–15 times/sec. Inside that single paint event, if reading an active texture or buffer continuously updating, the screen draws smoothly. Hooking a counter inside `paintEvent()` only counts the 10 Qt redraws, completely missing the 25 unique video frames presented!
+  2. *Direct GPU / EGL Overlay Bypass:* In hardware pipelines (`QOpenGLWidget`, EGL, Wayland subsurfaces), the context swaps buffers independently of Qt's high-level widget refresh logic.
+  3. *Timer Quantization:* `QTimer` wakeups bunch together under heavy Linux load, dropping scheduled render ticks while video flows freely.
+* **The C# Over-Reporting Trap (25 FPS when visually choppy):**
+  - If counting at decode or dispatch callbacks, 25 frames may arrive in burst clumps (e.g. 5ms, 5ms, 120ms, 5ms). The 1-second total is 25, but the frame pacing has severe visual judder.
+
+#### The Three Metrics Every Framework Must Track
+1. **Decode Throughput:** Raw decoder speed (count every packet unpacked).
+2. **Unique Presented FPS:** Only increment when a frame with a **new Presentation Timestamp (PTS)** is uploaded to the UI texture. Duplicate redraws of stale frames are ignored.
+3. **Inter-Frame Delta ($\Delta t$):** Measure elapsed time between consecutive presentations: $\Delta t = t_n - t_{n-1}$. Ideal interval for 25 FPS is **40ms** ($1000\text{ms} / 25$).
+
+#### Frame Pacing Formula & Time-in-State Bucketing
+Every 1 second, categorize each **active** stream into performance buckets:
+* **`Paced / Smooth (25-30 FPS, 30ms ≤ Δt ≤ 50ms)`** $\rightarrow$ `25_to_30_fps` in JSON
+* **`Micro-Stutter / Judder (20-24 FPS, 50ms < Δt ≤ 100ms)`** $\rightarrow$ `20_to_24_fps` in JSON
+* **`Choppy / Hard Freeze (10-19 FPS, Δt > 80ms)`** $\rightarrow$ `10_to_19_fps` in JSON
+* **`Unwatchable (<10 FPS, Δt > 100ms lag spikes)`** $\rightarrow$ `5_to_9_fps` and `under_5_fps` in JSON
+
+Every 60 seconds, flush the accumulated active stream-seconds JSON to `/var/log/benchmark/fps_metrics.log` (fallback to `./logs/fps_metrics.log`) and reset counters.
+
+#### Unified Presentation Gate Counter Hooks
+
+| Framework | Target Presentation Hook | Implementation Rule |
+| :--- | :--- | :--- |
+| **C++ / Qt6** | `QOpenGLWidget::paintGL()`, `frameSwapped()`, or atomic frame buffer consumer swap | Measure when unique PTS is handed to the rendering surface. Do **not** count naive `paintEvent()` coalesced events. |
+| **C# / Avalonia** | `VideoImageControl.Render()` or `OpenGlControlBase.OnOpenGlRender()` | Check `curPts != lastPts` before incrementing; measure `Stopwatch` delta between presentations. |
+| **Rust / Iced** | Shader primitive `render()` pipeline or immediately before `wgpu::Queue.submit()` | Record unique texture submission PTS and timestamp delta. |
+| **Electron** | WebCodecs `VideoDecoder({ output: (frame) => ... })` | Measure `performance.now()` delta and verify `frame.timestamp !== lastTimestamp` before canvas upload. |
+| **Rust / Tauri** | WebCodecs / WebGPU canvas render callback | Check PTS on incoming GStreamer payload and track presentation delta. |
+
+### 3.4 Disqualification Criteria (The Headroom Rule)
+Because the target production environment is a physical Windows desktop:
+* An implementation fails if it exceeds any of these thresholds for **more than 5 sustained minutes**:
+  - **CPU Usage:** > 85% (prevents Windows Desktop Window Manager `dwm.exe` starvation)
+  - **GPU 3D Engine:** > 80%
+  - **GPU VRAM:** > 90%
+  - **GPU Decoder (NVDEC):** > 90%
+* Hardware metrics are collected exclusively by the external background polling script (`scripts/poll_hardware.sh` to `/var/log/benchmark/hardware_metrics.csv`), never by the application code.
+
+### 3.5 Permissions & Path Fallback
+* Standard default path: `/var/log/benchmark/`.
+* On macOS development environments or non-root Linux users, `/var/log/` is not writable.
+* All implementations must attempt `/var/log/benchmark/` first, but gracefully fallback to `./logs/` if write permission is denied.
+
+### 3.6 Two-Stage Evaluation Strategy (Cloud Filter to Physical Hardware)
+1. **Stage 1: AWS Headless Elimination (The 6-Hour Crucible):**
+   - Run the 6-hour test on headless Linux (`c7i.8xlarge` / `g6.xlarge` via `xvfb-run`).
+   - Disqualify implementations that suffer from memory leaks ($dM/dt > 0$), sustained hardware saturation ($> 85\%$ CPU for $> 5$ min), or sub-10 FPS drops.
+2. **Stage 2: Physical Windows Monitor Test (Human Eye Reality Check):**
+   - Deploy the top 2–3 surviving implementations to a physical Windows workstation connected to a 60 Hz monitor.
+   - Run side-by-side with the `testsrc2` moving block pattern to verify true human-eye frame pacing, judder, and tearing resilience.
 
 ---
 
@@ -87,7 +149,7 @@
 
 ---
 
-## 6. RTSP Test Feed Generation (MediaMTX + FFmpeg)
+## 6. RTSP Test Feed Generation & Motion Verification (MediaMTX + FFmpeg)
 
 * Public internet RTSP streams (`rtsp://...`) are flaky, rate-limited, and ISPs often block inbound port 554.
 * For reproducible local and CI testing, use **MediaMTX** with FFmpeg:
@@ -96,10 +158,12 @@
     paths:
       all:
     ```
-  - Generate a 1440p 25 FPS test stream with FFmpeg:
+* **Motion Verification Standard (`testsrc2`):**
+  - Do not use static test patterns or simple frame counters that can mask compositor frame drops.
+  - Mandate `testsrc2` (`testsrc2=size=2560x1440:rate=25`), which produces animated moving blocks, scrolling color bars, and continuous high-frequency pixel updates across the entire 1440p frame:
     ```bash
     ffmpeg -re -f lavfi -i "testsrc2=size=2560x1440:rate=25" \
-      -c:v libx264 -preset ultrafast -tune zerolatency \
+      -c:v libx264 -preset ultrafast -tune zerolatency -threads 4 \
       -g 25 -pix_fmt yuv420p \
       -f rtsp -rtsp_transport tcp rtsp://127.0.0.1:8554/live
     ```
@@ -119,7 +183,7 @@
 | **Rust (Tauri)**| GPU (Zero-Copy) | `gpu/Rust-Tauri` | **Completed & Tested** | `gstreamer-rs` demux, WebSocket IPC, `BitmapRenderer` / WebGPU |
 | **Rust (Iced)** | CPU (Software) | `cpu/Rust-Iced` | **Completed & Tested** | `gstreamer-rs` CPU decode, `tiny-skia` backend, SIMD YUV->RGBA, `ArcSwap` & `Arc<RwLock<[u8]>>` lock-free handoff |
 | **Rust (Iced)** | GPU (Zero-Copy) | `gpu/Rust-Iced` | **Completed & Tested** | `gstreamer-rs` nvdec, `iced_wgpu` backend, WGPU texture mapping, WGSL shader quad blit |
-| **C# (.NET)** | CPU (Software) | `cpu/C#` | Pending | Avalonia UI, `FFmpeg.AutoGen`, `WriteableBitmap.Lock()` memory copy |
+| **C# (.NET)** | CPU (Software) | `cpu/C#` | **Completed & Tested** | Avalonia UI, `FFmpeg.AutoGen`, `WriteableBitmap.Lock()` memory copy |
 | **C# (.NET)** | GPU (Zero-Copy) | `gpu/C#` | Pending | Avalonia UI, `OpenGlControlBase`, raw texture ID injection |
 
 ---
@@ -284,7 +348,7 @@ cmake --build build -j$(nproc)
 ```
 The optimized executable is generated at `build/rtsp-stress-test-cpp-cpu`.
 
-##### Step 4: Run 24-Hour Benchmark Headless (Standalone Execution)
+##### Step 4: Run 6-Hour Benchmark Headless (Standalone Execution)
 ```bash
 export RTSP_URL="rtsp://10.0.1.50:8554/live"
 export STREAM_COUNT=30
@@ -293,7 +357,7 @@ export STREAM_COUNT=30
 ```
 This automatically initializes the virtual framebuffer (`xvfb-run -a -s "-screen 0 2560x1440x24"`), enforces software rasterization flags (`LIBGL_ALWAYS_SOFTWARE=1`, `QT_QPA_PLATFORM=xcb`), spawns the external hardware poller, and writes rolling 60-second JSON buckets.
 
-##### Step 5: Configure 24-Hour Automated Systemd Daemon
+##### Step 5: Configure 6-Hour Automated Systemd Daemon
 ```bash
 sudo ./scripts/setup_autostart.sh
 ```
@@ -451,7 +515,7 @@ npm run build
 ```
 The optimized executable is generated at `src-tauri/target/release/rtsp-stress-test-tauri-cpu`.
 
-##### Step 4: Run 24-Hour Benchmark Headless (Standalone Execution)
+##### Step 4: Run 6-Hour Benchmark Headless (Standalone Execution)
 ```bash
 # Optional: specify remote RTSP URL or custom stream count
 export RTSP_URL="rtsp://10.0.1.50:8554/live"
@@ -461,7 +525,7 @@ export STREAM_COUNT=30
 ```
 This automatically initializes the virtual framebuffer (`xvfb-run -a -s "-screen 0 2560x1440x24"`), enforces WebKit software rendering flags (`WEBKIT_DISABLE_COMPOSITING_MODE=1`, `LIBGL_ALWAYS_SOFTWARE=1`), spawns the external hardware poller, and flushes rolling 60-second JSON buckets.
 
-##### Step 5: Configure 24-Hour Automated Systemd Daemon
+##### Step 5: Configure 6-Hour Automated Systemd Daemon
 To ensure the benchmark survives SSH disconnects and restarts automatically on reboot:
 ```bash
 sudo ./scripts/setup_autostart.sh
@@ -562,7 +626,7 @@ cargo build --release
 ```
 The optimized executable is generated at `target/release/rtsp-stress-test-iced-gpu`.
 
-##### Step 4: Run 24-Hour Benchmark Headless (Standalone Execution)
+##### Step 4: Run 6-Hour Benchmark Headless (Standalone Execution)
 ```bash
 export RTSP_URL="rtsp://10.0.1.50:8554/live"
 export STREAM_COUNT=30
@@ -572,7 +636,7 @@ export WGPU_BACKEND="gl"
 ./scripts/run_benchmark_headless.sh
 ```
 
-##### Step 5: Configure 24-Hour Automated Systemd Daemon
+##### Step 5: Configure 6-Hour Automated Systemd Daemon
 ```bash
 sudo ./scripts/setup_autostart.sh
 ```
@@ -595,16 +659,89 @@ nvidia-smi --query-gpu=utilization.decoder,memory.used --format=csv
 ---
 
 ### 9.5 C# (.NET / Avalonia UI) Implementation Guide (`cpu/C#` and `gpu/C#`)
-* **CPU Mode (`cpu/C#`):**
-  - **Garbage Collection (GC) Hazard:** 30 streams × 25 FPS = 750 frames/sec. Allocating a 5.5 MB `byte[]` for each frame generates **4.1 GB/second of allocations**, forcing continuous Gen2 GC halts.
-  - **Zero-Allocation Rule:** Pre-allocate fixed unmanaged memory blocks using `NativeMemory.Alloc()` or reuse byte arrays via `ArrayPool<byte>.Shared`.
-  - **Rendering:**
+
+#### 1. Real-World Architecture & Performance Insights (CPU Mode)
+* **Pure CPU Software Decoding (`FFmpeg.AutoGen` / `libavcodec`):**
+  - Uses `ffmpeg.avcodec_find_decoder(AVCodecID.AV_CODEC_ID_H264)` to bind directly to libavcodec's optimized software decoder (`ff_h264_decoder`), strictly bypassing GPU accelerators.
+  - Configures `codecCtx->thread_count = 1` per stream worker thread. This allows 30 stream decoders to distribute cleanly across the 16–32 vCPUs of an AWS EC2 `c7i.8xlarge` instance without CPU scheduler thread thrashing.
+  - Configured with `rtsp_transport=tcp`, `stimeout=5000000` (5s timeout), `max_delay=500000` (500ms max latency), and a 4MB socket buffer (`buffer_size=4194304`).
+
+* **Zero-Allocation Memory Management (GC Protection):**
+  - **The GC Hazard:** 30 streams × 25 FPS = 750 frames/sec. Allocating a 14.7 MB uncompressed RGBA frame buffer on each frame creates **11.0 GB/second of heap allocations**, forcing continuous .NET Gen2 Garbage Collection pauses and pinning CPU at 100%.
+  - **The Solution:** Each `StreamWorker` pre-allocates a managed `byte[] _managedRgbBuffer = new byte[width * height * 4]` once when the stream initializes or changes resolution. Reusable unmanaged pointer arrays (`_srcData`, `_srcStride`, `_dstData`, `_dstStride`) are instantiated once in the constructor. `ffmpeg.sws_scale` writes directly into the pinned managed buffer with zero per-frame managed allocations.
+
+* **High-Performance Bitmap Blitting (`WriteableBitmap.Lock`):**
+  - Frames are blitted to Avalonia's rendering pipeline using `WriteableBitmap`:
     ```csharp
-    using (var fb = writeableBitmap.Lock()) {
-        Buffer.MemoryCopy(pSourceRgb, (void*)fb.Address, fb.RowBytes * height, fb.RowBytes * height);
+    fixed (byte* pDst = _managedRgbBuffer)
+    {
+        using (var fb = _writeableBitmap.Lock())
+        {
+            Buffer.MemoryCopy(
+                pDst,
+                (void*)fb.Address,
+                (long)fb.RowBytes * height,
+                (long)width * 4 * height
+            );
+        }
     }
     ```
-    Call `Dispatcher.UIThread.Post(..., DispatcherPriority.Render)` with dirty flags to trigger visual invalidate without spamming the dispatcher.
+  - Uses native SIMD-accelerated 64-bit `Buffer.MemoryCopy` pointer transfers directly into Skia's locked framebuffer memory.
+
+* **UI Thread Starvation Prevention & Coalesced Invalidation:**
+  - Posting 750 individual render events per second directly to Avalonia's `Dispatcher` saturates the UI message pump, causing mouse cursor lag and violating the Windows DWM 85% CPU headroom rule.
+  - Coalesced render invalidation via `Interlocked.CompareExchange(ref _renderPending, 1, 0)` ensures that if a render request is already queued, subsequent frames update the bitmap directly and set `_hasNewFrame = true` without enqueuing redundant UI dispatcher tasks.
+
+* **The macOS / Linux `RLIMIT_NOFILE` Trap:**
+  - Opening 30 concurrent RTSP TCP sockets, event pipes, and worker threads exceeds default per-process limits (256 on macOS, 1024 on Linux), crashing with `EMFILE`.
+  - Programmatically raise `RLIMIT_NOFILE` to `10240` at application startup via `libc` P/Invoke.
+
+* **Dynamic FFmpeg Library Resolution:**
+  - Dynamic discovery across macOS (`/opt/homebrew/opt/ffmpeg/lib`), Linux (`/usr/lib/x86_64-linux-gnu`, `/usr/lib`), and Windows.
+  - Inspects available `libavcodec.so.*` / `libavcodec.*.dylib` version and updates `DynamicallyLoadedBindings.LibraryVersionMap` dynamically, ensuring compatibility with FFmpeg 6.x, 7.x, and 9.x.
+
+---
+
+#### 2. AWS EC2 Build & Deployment Runbook for C# Avalonia CPU (`c7i.8xlarge` / `c7i.4xlarge`)
+
+##### Step 1: EC2 Instance Sizing & Launch
+* **Instance Type:** `c7i.8xlarge` (32 vCPUs, 64 GiB DDR5 RAM) for full headroom, or `c7i.4xlarge` (16 vCPUs) for bare-minimum stress simulation.
+* **OS:** Ubuntu 24.04 LTS or 22.04 LTS AMD64 (`ami-xxxx`).
+
+##### Step 2: System Provisioning
+```bash
+git clone https://github.com/your-org/rtsp-stress-test.git /opt/rtsp-stress-test
+cd /opt/rtsp-stress-test/cpu/C#
+
+# Run provisioning script (installs .NET SDK, FFmpeg dev headers, Xvfb)
+chmod +x scripts/*.sh
+sudo ./scripts/ec2_userdata.sh
+```
+
+##### Step 3: Publish Release Binary
+```bash
+dotnet publish -c Release -o bin/publish
+```
+
+##### Step 4: Run 6-Hour Benchmark Headless
+```bash
+export RTSP_URL="rtsp://10.0.1.50:8554/live"
+export STREAM_COUNT=30
+
+./scripts/run_benchmark_headless.sh
+```
+
+##### Step 5: Configure 6-Hour Automated Systemd Daemon
+```bash
+sudo ./scripts/setup_autostart.sh
+```
+* **Verify Status:** `sudo systemctl status rtsp-benchmark-csharp-cpu.service`
+* **Tail Service Logs:** `journalctl -u rtsp-benchmark-csharp-cpu.service -f`
+* **Tail FPS Telemetry:** `tail -f /var/log/benchmark/fps_metrics.log`
+* **Tail Hardware Telemetry:** `tail -f /var/log/benchmark/hardware_metrics.csv`
+
+---
+
 * **GPU Zero-Copy Mode (`gpu/C#`):**
   - Configure `FFmpeg.AutoGen` with `AV_HWDEVICE_TYPE_CUDA` or `AV_HWDEVICE_TYPE_VAAPI`.
   - Subclass Avalonia's `OpenGlControlBase`.

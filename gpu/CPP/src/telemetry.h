@@ -56,4 +56,6 @@ private:
 
     // Previous frame counts per stream to calculate delta per 1s tick
     std::vector<uint64_t> m_prevFrames;
+    uint64_t m_accumulatedActiveStreams = 0;
+    uint32_t m_activeStreamsSampleCount = 0;
 };

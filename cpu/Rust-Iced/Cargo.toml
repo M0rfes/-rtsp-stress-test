@@ -1,7 +1,7 @@
 [package]
 name = "rtsp-stress-test-iced-cpu"
 version = "1.0.0"
-description = "24-Hour 30-stream 1440p 25fps RTSP Video Grid Benchmark (Rust Iced CPU Software Decode)"
+description = "6-Hour 30-stream 1440p 25fps RTSP Video Grid Benchmark (Rust Iced CPU Software Decode)"
 edition = "2021"
 
 [dependencies]

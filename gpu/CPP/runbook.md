@@ -1,6 +1,6 @@
 # Operations, Debugging & Troubleshooting Runbook (C++ Qt6 GPU Benchmark)
 
-This runbook provides complete operational procedures for deploying, verifying, debugging, and diagnosing the 24-hour RTSP GPU Zero-Copy benchmark on AWS EC2 Ubuntu Linux using native C++, Qt6, and `libavcodec` hardware acceleration (CUDA / NVDEC / VA-API).
+This runbook provides complete operational procedures for deploying, verifying, debugging, and diagnosing the 6-hour RTSP GPU Zero-Copy benchmark on AWS EC2 Ubuntu Linux using native C++, Qt6, and `libavcodec` hardware acceleration (CUDA / NVDEC / VA-API).
 
 ---
 
@@ -127,7 +127,7 @@ tail -f /var/log/benchmark/hardware_metrics.csv
 
 ## 4. Manual Headless Test Run (Pre-Flight Verification)
 
-Before enabling the 24-hour systemd daemon, run the headless benchmark interactively for 2 minutes to inspect output:
+Before enabling the 6-hour systemd daemon, run the headless benchmark interactively for 2 minutes to inspect output:
 ```bash
 cd /opt/rtsp-stress-test/gpu/CPP
 
@@ -141,7 +141,7 @@ xvfb-run -a -s "-screen 0 2560x1440x24" ./build/rtsp-stress-test-cpp-gpu \
 *Expected Console Output:*
 ```text
 =================================================================
- 24-Hour RTSP Video Grid Benchmark (C++ Qt6 GPU Zero-Copy Decode)
+ 6-Hour RTSP Video Grid Benchmark (C++ Qt6 GPU Zero-Copy Decode)
 =================================================================
  Target RTSP URL:       rtsp://127.0.0.1:8554/live
  Active Streams:        30
@@ -174,9 +174,9 @@ An evaluation run is disqualified if any of these conditions persist for > 5 min
 
 ## 6. Post-Benchmark Log Retrieval & Analysis
 
-When the 24-hour run finishes, export the telemetry and hardware metrics:
+When the 6-hour run finishes, export the telemetry and hardware metrics:
 ```bash
-# Verify total stream-seconds accumulated (30 streams * 86,400s = 2,592,000 stream-seconds)
+# Verify total JSON flushes accumulated (6 hours = 360 one-minute windows)
 grep -c "timestamp" /var/log/benchmark/fps_metrics.log
 
 # Compute total acceptable vs unacceptable percentage

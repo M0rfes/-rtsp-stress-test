@@ -15,7 +15,7 @@ MainWindow::MainWindow(const AppConfig& config,
     , m_telemetry(std::make_unique<TelemetryManager>(config.logPath, config.machineId, config.streamCount))
 {
     std::string hwDesc = m_hwAccel ? m_hwAccel->deviceName() : "GPU";
-    setWindowTitle(QString("RTSP Video Grid Benchmark (C++ Qt6 GPU Zero-Copy Hardware Decode [%1]) - %2 Streams")
+    setWindowTitle(QString("6-Hour RTSP Video Grid Benchmark (C++ Qt6 GPU Zero-Copy Hardware Decode [%1]) - %2 Streams")
                        .arg(QString::fromStdString(hwDesc).toUpper())
                        .arg(m_config.streamCount));
     resize(1920, 1080);

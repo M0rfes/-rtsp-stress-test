@@ -166,7 +166,7 @@ The optimized executable is generated at:
 
 ---
 
-## Headless Linux (AWS EC2) 24-Hour Benchmark Deployment
+## Headless Linux (AWS EC2) 6-Hour Benchmark Deployment
 
 ### 1. Recommended EC2 Instance
 - **Instance Type:** `g6.xlarge` (NVIDIA L4 GPU) or `g4dn.xlarge` (NVIDIA T4 GPU).
@@ -188,7 +188,7 @@ export STREAM_COUNT=30
 ./scripts/run_benchmark_headless.sh
 ```
 
-### 4. Setup 24-Hour Systemd Daemon
+### 4. Setup 6-Hour Systemd Daemon
 To ensure the benchmark survives SSH disconnects and restarts automatically on reboot:
 ```bash
 sudo ./scripts/setup_autostart.sh

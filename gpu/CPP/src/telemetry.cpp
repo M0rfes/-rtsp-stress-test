@@ -27,11 +27,19 @@ void TelemetryManager::tick(const std::vector<StreamWorker*>& workers) {
     int liveStreams = 0;
 
     for (size_t i = 0; i < count; ++i) {
-        uint64_t pnt = workers[i]->paintedFrames();
-        uint64_t dec = workers[i]->decodedFrames();
-        uint64_t current = pnt;
+        if (!workers[i] || !workers[i]->isConnected()) {
+            // Phase 2 Rule: Do NOT count frames or log bucket seconds for dropped / inactive streams
+            if (workers[i]) {
+                m_prevFrames[i] = workers[i]->paintedFrames();
+                workers[i]->setCurrentFps(0.0f);
+            }
+            continue;
+        }
+
+        liveStreams++;
+        uint64_t current = workers[i]->paintedFrames();
         if (current == 0) {
-            current = dec;
+            current = workers[i]->decodedFrames();
         }
 
         uint64_t prev = m_prevFrames[i];
@@ -41,11 +49,7 @@ void TelemetryManager::tick(const std::vector<StreamWorker*>& workers) {
         workers[i]->setCurrentFps(static_cast<float>(deltaFps));
         totalFps += static_cast<float>(deltaFps);
 
-        if (workers[i]->isConnected()) {
-            liveStreams++;
-        }
-
-        // Categorize into performance buckets
+        // Categorize active streams into performance buckets
         if (deltaFps >= 25) {
             m_windowBuckets.fps_25_to_30++;
         } else if (deltaFps >= 20) {
@@ -61,18 +65,25 @@ void TelemetryManager::tick(const std::vector<StreamWorker*>& workers) {
 
     m_aggregateFps = totalFps;
     m_liveStreams = liveStreams;
+    m_accumulatedActiveStreams += liveStreams;
+    m_activeStreamsSampleCount++;
     m_secondsInWindow++;
 
     // Check if 60-second window is reached
     if (m_secondsInWindow >= 60) {
         flushWindow();
         m_windowBuckets.reset();
+        m_accumulatedActiveStreams = 0;
+        m_activeStreamsSampleCount = 0;
         m_secondsInWindow = 0;
     }
 }
 
 void TelemetryManager::flushWindow() {
     QString timestamp = QDateTime::currentDateTimeUtc().toString("yyyy-MM-ddTHH:mm:ss'Z'");
+    int avgActiveStreams = m_activeStreamsSampleCount > 0 
+        ? static_cast<int>(std::round(static_cast<double>(m_accumulatedActiveStreams) / m_activeStreamsSampleCount))
+        : m_activeStreams;
 
     QJsonObject acceptable;
     acceptable["25_to_30_fps"] = static_cast<int>(m_windowBuckets.fps_25_to_30);
@@ -93,7 +104,7 @@ void TelemetryManager::flushWindow() {
     root["framework"] = "cpp_qt6";
     root["hardware_mode"] = "gpu";
     root["window_duration_seconds"] = 60;
-    root["active_streams"] = m_activeStreams;
+    root["active_streams"] = avgActiveStreams;
     root["fps_stream_seconds"] = fpsStreamSeconds;
 
     QJsonDocument doc(root);

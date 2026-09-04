@@ -30,6 +30,8 @@ export class TelemetryManager {
   private totalFlushes: number = 0;
   private logFilePath: string;
   private activeStreams: number;
+  private accumulatedActiveStreams: number = 0;
+  private activeStreamsSampleCount: number = 0;
   private listeners: ((payload: FpsMetricsPayload, currentWindowSec: number, streamFpsList: number[]) => void)[] = [];
 
   constructor() {
@@ -71,14 +73,25 @@ export class TelemetryManager {
   }
 
   /**
-   * Called on every 1-second tick with the frame counts painted by each stream.
-   * @param streamFpsList Array of FPS painted during the past second for each stream.
+   * Called on every 1-second tick with the frame counts and status of each stream.
+   * @param streamMetrics Array of FPS and connection status during the past second.
    */
-  public recordTick(streamFpsList: number[]): void {
+  public recordTick(streamMetrics: Array<{ streamId?: number; fps: number; isConnected?: boolean } | number>): void {
     this.tickCountInWindow++;
-    this.activeStreams = streamFpsList.length;
+    let activeInTick = 0;
+    const fpsValues: number[] = [];
 
-    for (const fps of streamFpsList) {
+    for (const item of streamMetrics) {
+      const isConnected = typeof item === 'number' ? true : (item.isConnected !== false);
+      const fps = typeof item === 'number' ? item : item.fps;
+      fpsValues.push(fps);
+
+      if (!isConnected) {
+        // Phase 2 Rule: Do NOT count frames or log bucket seconds for dropped / inactive streams
+        continue;
+      }
+
+      activeInTick++;
       if (fps >= 25) {
         this.currentBuckets.acceptable['25_to_30_fps']++;
       } else if (fps >= 20) {
@@ -92,8 +105,14 @@ export class TelemetryManager {
       }
     }
 
+    this.accumulatedActiveStreams += activeInTick;
+    this.activeStreamsSampleCount++;
+    this.activeStreams = this.activeStreamsSampleCount > 0
+      ? Math.round(this.accumulatedActiveStreams / this.activeStreamsSampleCount)
+      : streamMetrics.length;
+
     const currentPayload = this.buildPayload();
-    this.notifyListeners(currentPayload, this.tickCountInWindow, streamFpsList);
+    this.notifyListeners(currentPayload, this.tickCountInWindow, fpsValues);
 
     if (this.tickCountInWindow >= config.windowDurationSeconds) {
       this.flushToDisk();
@@ -105,7 +124,7 @@ export class TelemetryManager {
     const jsonString = JSON.stringify(payload, null, 2);
 
     try {
-      // Append to the log file so continuous 24h benchmark records all 60s windows
+      // Append to the log file so continuous 6h benchmark records all 60s windows
       fs.appendFileSync(this.logFilePath, jsonString + '\n\n', 'utf-8');
       this.totalFlushes++;
       console.log(`[Telemetry] Flushed 60s window #${this.totalFlushes} to ${this.logFilePath}`);
@@ -117,6 +136,8 @@ export class TelemetryManager {
     // Immediately reset internal counters to zero for the next window
     this.currentBuckets = this.createEmptyBuckets();
     this.tickCountInWindow = 0;
+    this.accumulatedActiveStreams = 0;
+    this.activeStreamsSampleCount = 0;
   }
 
   public buildPayload(): FpsMetricsPayload {

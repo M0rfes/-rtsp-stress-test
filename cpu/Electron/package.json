@@ -1,7 +1,7 @@
 {
   "name": "rtsp-stress-test-electron-cpu",
   "version": "1.0.0",
-  "description": "24-Hour 30-stream 1440p 25fps RTSP Video Grid Benchmark (Electron CPU Software Decode)",
+  "description": "6-Hour 30-stream 1440p 25fps RTSP Video Grid Benchmark (Electron CPU Software Decode)",
   "main": "dist/main/index.js",
   "scripts": {
     "build:main": "tsc -p tsconfig.main.json",

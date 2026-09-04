@@ -1,7 +1,15 @@
 import React, { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 
+export interface StreamFpsReport {
+  streamId: number;
+  fps: number;
+  isConnected: boolean;
+  lastDeltaMs: number;
+}
+
 export interface VideoPlayerRef {
   getFpsAndReset: () => number;
+  getReportAndReset: () => StreamFpsReport;
   updateFpsDisplay: (fps: number) => void;
 }
 
@@ -18,6 +26,10 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
 
   // High performance mutable refs to decouple video rendering from React render cycle
   const frameCountRef = useRef<number>(0);
+  const lastPtsRef = useRef<number | null>(null);
+  const lastPresentedTimeRef = useRef<number>(0);
+  const lastDeltaMsRef = useRef<number>(0);
+  const isConnectedRef = useRef<boolean>(false);
   const pendingFramesRef = useRef<number>(0);
   const hasConfiguredRef = useRef<boolean>(false);
   const currentCodecRef = useRef<string>('');
@@ -33,6 +45,18 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
       const fps = frameCountRef.current;
       frameCountRef.current = 0;
       return fps;
+    },
+    getReportAndReset: () => {
+      const fps = frameCountRef.current;
+      frameCountRef.current = 0;
+      const now = performance.now();
+      const connected = isConnectedRef.current && (lastPresentedTimeRef.current > 0 && now - lastPresentedTimeRef.current < 3000);
+      return {
+        streamId,
+        fps,
+        isConnected: connected,
+        lastDeltaMs: lastDeltaMsRef.current,
+      };
     },
     updateFpsDisplay: (fps: number) => {
       // Direct DOM update: zero React re-renders for maximum V8 throughput
@@ -117,6 +141,14 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
             return;
           }
 
+          // Effective FPS: Presentation Timestamp (PTS) uniqueness check
+          const curPts = videoFrame.timestamp;
+          if (lastPtsRef.current !== null && curPts === lastPtsRef.current) {
+            videoFrame.close();
+            return;
+          }
+          lastPtsRef.current = curPts;
+
           // Adjust canvas/offscreen dimensions to match decoded frame
           if (offscreen) {
             if (offscreen.width !== videoFrame.displayWidth || offscreen.height !== videoFrame.displayHeight) {
@@ -152,11 +184,18 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
               if (bitmapCtxRef.current) {
                 // Direct zero-copy transfer of GPU texture into canvas swapchain
                 bitmapCtxRef.current.transferFromImageBitmap(bitmap);
+
+                // Frame pacing inter-frame delta calculation (tn - tn-1)
+                const now = performance.now();
+                if (lastPresentedTimeRef.current > 0) {
+                  lastDeltaMsRef.current = now - lastPresentedTimeRef.current;
+                }
+                lastPresentedTimeRef.current = now;
+                isConnectedRef.current = true;
+                frameCountRef.current++;
               } else {
                 bitmap.close();
               }
-
-              frameCountRef.current++;
 
               if (placeholderRef.current && placeholderRef.current.style.display !== 'none') {
                 placeholderRef.current.style.display = 'none';
@@ -238,6 +277,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
     };
 
     ws.onclose = () => {
+      isConnectedRef.current = false;
       if (!isDestroyed && statusDotRef.current) {
         statusDotRef.current.className = 'status-dot offline';
       }

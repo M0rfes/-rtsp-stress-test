@@ -1,7 +1,15 @@
 import { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 
+export interface StreamFpsReport {
+  streamId: number;
+  fps: number;
+  isConnected: boolean;
+  lastDeltaMs: number;
+}
+
 export interface VideoPlayerRef {
   getFpsAndReset: () => number;
+  getReportAndReset: () => StreamFpsReport;
   updateFpsDisplay: (fps: number) => void;
 }
 
@@ -16,7 +24,12 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
   const statusDotRef = useRef<HTMLSpanElement | null>(null);
   const placeholderRef = useRef<HTMLDivElement | null>(null);
 
+  // High-performance mutable refs — zero React re-render overhead
   const frameCountRef = useRef<number>(0);
+  const lastPtsRef = useRef<number | null>(null);
+  const lastPresentedTimeRef = useRef<number>(0);
+  const lastDeltaMsRef = useRef<number>(0);
+  const isConnectedRef = useRef<boolean>(false);
   const hasRenderedFirstFrameRef = useRef<boolean>(false);
   const hasSeenKeyframeRef = useRef<boolean>(false);
   const decoderRef = useRef<VideoDecoder | null>(null);
@@ -27,6 +40,18 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
       const fps = frameCountRef.current;
       frameCountRef.current = 0;
       return fps;
+    },
+    getReportAndReset: () => {
+      const fps = frameCountRef.current;
+      frameCountRef.current = 0;
+      const now = performance.now();
+      const connected = isConnectedRef.current && (lastPresentedTimeRef.current > 0 && now - lastPresentedTimeRef.current < 3000);
+      return {
+        streamId,
+        fps,
+        isConnected: connected,
+        lastDeltaMs: lastDeltaMsRef.current,
+      };
     },
     updateFpsDisplay: (fps: number) => {
       if (fpsBadgeRef.current) {
@@ -78,6 +103,14 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
               return;
             }
 
+            // Effective FPS gate: only count frames with a new unique PTS
+            const curPts = videoFrame.timestamp;
+            if (curPts === lastPtsRef.current) {
+              videoFrame.close();
+              return;
+            }
+            lastPtsRef.current = curPts;
+
             if (streamId === 0 && !hasRenderedFirstFrameRef.current) {
               hasRenderedFirstFrameRef.current = true;
               console.log(`[Stream 0] SUCCESS: First frame rendered via ImageBitmap! Dimensions: ${videoFrame.displayWidth}x${videoFrame.displayHeight}`);
@@ -103,6 +136,13 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
                   bitmap.close();
                 }
 
+                // Record presentation: Δt pacing and connection state
+                const now = performance.now();
+                if (lastPresentedTimeRef.current > 0) {
+                  lastDeltaMsRef.current = now - lastPresentedTimeRef.current;
+                }
+                lastPresentedTimeRef.current = now;
+                isConnectedRef.current = true;
                 frameCountRef.current++;
 
                 if (placeholderRef.current && placeholderRef.current.style.display !== 'none') {
@@ -215,6 +255,8 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
     };
 
     ws.onclose = () => {
+      isConnectedRef.current = false;
+      lastPtsRef.current = null;
       if (!isDestroyed && statusDotRef.current) {
         statusDotRef.current.className = 'status-dot offline';
       }

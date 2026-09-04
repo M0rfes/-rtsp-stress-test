@@ -25,7 +25,7 @@ pub struct HudState {
 }
 
 pub fn view_hud<'a>(hud: &'a HudState) -> Element<'a, Message> {
-    let title_text = text("RTSP 30-Stream Video Grid Benchmark")
+    let title_text = text("6-Hour RTSP 30-Stream Video Grid Benchmark")
         .size(15)
         .color(Color::from_rgb8(240, 240, 245));
 

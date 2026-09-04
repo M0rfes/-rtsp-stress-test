@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run_benchmark_headless.sh - 24-Hour Benchmark Runner for Headless Linux (AWS Ubuntu)
+# run_benchmark_headless.sh - 6-Hour Benchmark Runner for Headless Linux (AWS Ubuntu)
 # Handles GPU hardware-accelerated zero-copy video grid testing under Xvfb
 set -e
 
@@ -106,7 +106,7 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM
 
-echo "[*] 24-Hour Benchmark is now actively running."
+echo "[*] 6-Hour Benchmark is now actively running."
 echo "[*] Monitor FPS metrics:      tail -f $LOG_DIR/fps_metrics.log"
 echo "[*] Monitor Hardware metrics: tail -f $LOG_DIR/hardware_metrics.csv"
 

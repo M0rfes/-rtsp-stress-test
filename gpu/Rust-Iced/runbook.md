@@ -1,6 +1,6 @@
 # Operations, Debugging & Troubleshooting Runbook (Rust Iced GPU Benchmark)
 
-This runbook provides procedures for monitoring, verifying, debugging, and troubleshooting the 24-hour RTSP GPU Zero-Copy benchmark running under systemd or headless CLI on AWS EC2 Ubuntu Linux (`g6.xlarge` / `g4dn.xlarge` with NVIDIA GPU) using pure Rust, `iced_wgpu`, and GStreamer NVDEC.
+This runbook provides procedures for monitoring, verifying, debugging, and troubleshooting the 6-hour RTSP GPU Zero-Copy benchmark running under systemd or headless CLI on AWS EC2 Ubuntu Linux (`g6.xlarge` / `g4dn.xlarge` with NVIDIA GPU) using pure Rust, `iced_wgpu`, and GStreamer NVDEC.
 
 ---
 

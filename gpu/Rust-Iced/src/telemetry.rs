@@ -47,6 +47,8 @@ pub struct TelemetryManager {
     tick_count_in_window: u32,
     total_flushes: u64,
     active_streams: usize,
+    accumulated_active_streams: u64,
+    active_streams_sample_count: u32,
     latest_stream_fps: Vec<u32>,
 }
 
@@ -62,6 +64,8 @@ impl TelemetryManager {
             tick_count_in_window: 0,
             total_flushes: 0,
             active_streams,
+            accumulated_active_streams: 0,
+            active_streams_sample_count: 0,
             latest_stream_fps: vec![0; active_streams],
         }
     }
@@ -89,12 +93,18 @@ impl TelemetryManager {
         &self.latest_stream_fps
     }
 
-    pub fn record_tick(&mut self, stream_fps_list: &[u32]) -> (FpsMetricsPayload, u32) {
+    pub fn record_tick(&mut self, stream_metrics: &[(u32, bool)]) -> (FpsMetricsPayload, u32) {
         self.tick_count_in_window += 1;
-        self.active_streams = stream_fps_list.len();
-        self.latest_stream_fps = stream_fps_list.to_vec();
+        self.latest_stream_fps = stream_metrics.iter().map(|&(fps, _)| fps).collect();
+        let mut active_this_sec = 0;
 
-        for &fps in stream_fps_list {
+        for &(fps, is_connected) in stream_metrics {
+            if !is_connected {
+                // Phase 2 Rule: Do NOT count frames or log bucket seconds for dropped / inactive streams
+                continue;
+            }
+
+            active_this_sec += 1;
             if fps >= 25 {
                 self.current_buckets.acceptable.fps_25_to_30 += 1;
             } else if fps >= 20 {
@@ -108,6 +118,14 @@ impl TelemetryManager {
             }
         }
 
+        self.accumulated_active_streams += active_this_sec;
+        self.active_streams_sample_count += 1;
+        self.active_streams = if self.active_streams_sample_count > 0 {
+            (self.accumulated_active_streams as f64 / self.active_streams_sample_count as f64).round() as usize
+        } else {
+            stream_metrics.len()
+        };
+
         let payload = self.build_payload();
         let current_sec = self.tick_count_in_window;
 
@@ -115,6 +133,8 @@ impl TelemetryManager {
             self.flush_to_disk(&payload);
             self.current_buckets = FpsStreamSeconds::default();
             self.tick_count_in_window = 0;
+            self.accumulated_active_streams = 0;
+            self.active_streams_sample_count = 0;
         }
 
         (payload, current_sec)

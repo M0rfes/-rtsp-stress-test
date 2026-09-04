@@ -32,7 +32,7 @@ export const App: React.FC = () => {
   const [stats, setStats] = useState<TelemetrySummary>({
     machineId: 'initializing...',
     framework: 'rust_tauri',
-    hardwareMode: 'gpu',
+    hardwareMode: 'cpu',
     activeStreams: streamCount,
     currentWindowSec: 0,
     acceptable25to30: 0,
@@ -109,18 +109,20 @@ export const App: React.FC = () => {
   }, [wsPort]);
 
   // 1-Second Interval: The Master Benchmark Tick
-  // Queries each video player for its painted frame count, updates player overlays directly,
-  // and transmits the streamFpsList array to the backend telemetry manager
+  // Queries each video player for its presented frame count (PTS-gated), updates player overlays directly,
+  // and transmits the streamFpsList + streamReports to the backend telemetry manager
   useEffect(() => {
     const interval = setInterval(() => {
       const streamFpsList: number[] = [];
+      const streamReports: { streamId: number; fps: number; isConnected: boolean; lastDeltaMs: number }[] = [];
 
       for (let i = 0; i < streamCount; i++) {
         const player = playerRefs.current.get(i);
-        const fps = player ? player.getFpsAndReset() : 0;
-        streamFpsList.push(fps);
+        const report = player ? player.getReportAndReset() : { streamId: i, fps: 0, isConnected: false, lastDeltaMs: 0 };
+        streamFpsList.push(report.fps);
+        streamReports.push(report);
         if (player) {
-          player.updateFpsDisplay(fps);
+          player.updateFpsDisplay(report.fps);
         }
       }
 
@@ -130,6 +132,7 @@ export const App: React.FC = () => {
           JSON.stringify({
             type: 'tick_fps',
             streamFpsList,
+            streamReports,
           })
         );
       }

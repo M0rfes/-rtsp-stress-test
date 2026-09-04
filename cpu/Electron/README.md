@@ -88,7 +88,7 @@ sudo mkdir -p /var/log/benchmark
 sudo chmod 777 /var/log/benchmark
 ```
 
-### 3. Execute 24-Hour Benchmark
+### 3. Execute 6-Hour Benchmark
 ```bash
 # Run the complete headless benchmark under Xvfb (with automatic hardware polling)
 ./scripts/run_benchmark_headless.sh

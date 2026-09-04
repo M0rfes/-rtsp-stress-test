@@ -1,6 +1,6 @@
 # Operations, Debugging & Troubleshooting Runbook (Rust Iced CPU Benchmark)
 
-This runbook provides procedures for monitoring, verifying, debugging, and troubleshooting the 24-hour RTSP CPU benchmark running under systemd or headless CLI on AWS EC2 Ubuntu Linux using pure Rust and Iced (`tiny-skia` software rasterizer backend).
+This runbook provides procedures for monitoring, verifying, debugging, and troubleshooting the 6-hour RTSP CPU benchmark running under systemd or headless CLI on AWS EC2 Ubuntu Linux using pure Rust and Iced (`tiny-skia` software rasterizer backend).
 
 ---
 

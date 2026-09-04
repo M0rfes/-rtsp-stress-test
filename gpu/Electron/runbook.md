@@ -1,6 +1,6 @@
 # Operations & Troubleshooting Runbook (Electron GPU Zero-Copy Benchmark)
 
-This runbook provides procedures for monitoring, verifying, and troubleshooting the 24-hour RTSP GPU Zero-Copy hardware benchmark running under systemd on AWS EC2 Ubuntu Linux with NVIDIA GPUs.
+This runbook provides procedures for monitoring, verifying, and troubleshooting the 6-hour RTSP GPU Zero-Copy hardware benchmark running under systemd on AWS EC2 Ubuntu Linux with NVIDIA GPUs.
 
 ---
 
@@ -180,7 +180,7 @@ sudo rm -f /var/log/benchmark/fps_metrics.log /var/log/benchmark/hardware_metric
 sudo systemctl start rtsp-benchmark-gpu.service
 ```
 
-### Archive and Download 24-Hour Benchmark Results
+### Archive and Download 6-Hour Benchmark Results
 On the EC2 instance:
 ```bash
 tar -czvf /tmp/gpu_benchmark_results_$(date +%F).tar.gz /var/log/benchmark/

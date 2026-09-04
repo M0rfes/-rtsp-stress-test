@@ -1,6 +1,6 @@
 # Operations & Troubleshooting Runbook (Rust Tauri CPU Benchmark)
 
-This runbook provides procedures for monitoring, verifying, and troubleshooting the 24-hour RTSP CPU benchmark running under systemd or headless CLI on AWS EC2 Ubuntu Linux.
+This runbook provides procedures for monitoring, verifying, and troubleshooting the 6-hour RTSP CPU benchmark running under systemd or headless CLI on AWS EC2 Ubuntu Linux.
 
 ---
 
