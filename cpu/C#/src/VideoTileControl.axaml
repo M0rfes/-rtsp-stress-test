@@ -1,0 +1,83 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:local="clr-namespace:RtspStressTest"
+             mc:Ignorable="d" d:DesignWidth="320" d:DesignHeight="180"
+             x:Class="RtspStressTest.VideoTileControl">
+
+    <Border Background="#1a1a20"
+            BorderBrush="#2d2d38"
+            BorderThickness="1"
+            CornerRadius="4"
+            ClipToBounds="True"
+            Margin="2">
+        <Grid>
+            <!-- Video Frame Render Surface -->
+            <local:VideoImageControl x:Name="VideoImage"
+                                    HorizontalAlignment="Stretch"
+                                    VerticalAlignment="Stretch" />
+
+            <!-- Fallback / Connecting Overlay -->
+            <TextBlock x:Name="ConnectingText"
+                       Text="CONNECTING..."
+                       Foreground="#707080"
+                       FontSize="11"
+                       FontWeight="SemiBold"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       IsVisible="True" />
+
+            <!-- Top Camera Badge -->
+            <Border Background="#cc121218"
+                    CornerRadius="3"
+                    Padding="6,2"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Margin="6">
+                <TextBlock x:Name="CameraIdText"
+                           Text="CAM 01"
+                           Foreground="#e0e0f0"
+                           FontWeight="Bold"
+                           FontSize="11" />
+            </Border>
+
+            <!-- Bottom Stream Telemetry HUD -->
+            <Border Background="#cc121218"
+                    CornerRadius="3"
+                    Padding="6,3"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Bottom"
+                    Margin="4">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <!-- Status Dot & Resolution -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="5">
+                        <Ellipse x:Name="StatusDot"
+                                 Width="7"
+                                 Height="7"
+                                 Fill="#e74c3c" />
+                        <TextBlock x:Name="ResolutionText"
+                                   Text="--- x ---"
+                                   Foreground="#a0a0b0"
+                                   FontSize="10"
+                                   FontFamily="Consolas,Menlo,Monospace" />
+                    </StackPanel>
+
+                    <!-- Real-time FPS Badge -->
+                    <Border Grid.Column="2"
+                            x:Name="FpsBadge"
+                            Background="#223322"
+                            CornerRadius="2"
+                            Padding="4,1">
+                        <TextBlock x:Name="FpsText"
+                                   Text="0.0 FPS"
+                                   Foreground="#2ecc71"
+                                   FontWeight="Bold"
+                                   FontSize="10"
+                                   FontFamily="Consolas,Menlo,Monospace" />
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

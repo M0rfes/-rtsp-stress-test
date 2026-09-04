@@ -1,0 +1,189 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:RtspStressTest"
+        mc:Ignorable="d" d:DesignWidth="1920" d:DesignHeight="1080"
+        x:Class="RtspStressTest.MainWindow"
+        Title="24-Hour RTSP Video Grid Benchmark (C# Avalonia CPU Decode)"
+        Background="#101014">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Top Dashboard Header -->
+        <Border Grid.Row="0"
+                Background="#181820"
+                BorderBrush="#252532"
+                BorderThickness="0,0,0,1"
+                Padding="16,10">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <!-- App Title & Mode Info -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
+                    <TextBlock Text="RTSP 30-GRID"
+                               Foreground="#ffffff"
+                               FontWeight="Heavy"
+                               FontSize="16"
+                               VerticalAlignment="Center" />
+                    <Border Background="#252535"
+                            CornerRadius="3"
+                            Padding="8,3"
+                            VerticalAlignment="Center">
+                        <TextBlock Text="C# Avalonia CPU (Software Decode)"
+                                   Foreground="#79c0ff"
+                                   FontWeight="SemiBold"
+                                   FontSize="11" />
+                    </Border>
+                    <Border Background="#1c2836"
+                            CornerRadius="3"
+                            Padding="8,3"
+                            VerticalAlignment="Center">
+                        <TextBlock x:Name="MachineIdText"
+                                   Text="Node: local"
+                                   Foreground="#8b949e"
+                                   FontSize="11"
+                                   FontFamily="Consolas,Menlo,Monospace" />
+                    </Border>
+                </StackPanel>
+
+                <!-- Center Telemetry Metrics -->
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Spacing="12">
+                    <!-- Active Streams Pill -->
+                    <Border Background="#162c1e"
+                            BorderBrush="#2ea043"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="10,4">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="STREAMS:"
+                                       Foreground="#8b949e"
+                                       FontSize="11"
+                                       FontWeight="SemiBold" />
+                            <TextBlock x:Name="ActiveStreamsText"
+                                       Text="0 / 30"
+                                       Foreground="#3fb950"
+                                       FontWeight="Bold"
+                                       FontSize="11"
+                                       FontFamily="Consolas,Menlo,Monospace" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Aggregate FPS Pill -->
+                    <Border Background="#1b2535"
+                            BorderBrush="#388bfd"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="10,4">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="AGGREGATE FPS:"
+                                       Foreground="#8b949e"
+                                       FontSize="11"
+                                       FontWeight="SemiBold" />
+                            <TextBlock x:Name="AggregateFpsText"
+                                       Text="0.0 FPS"
+                                       Foreground="#58a6ff"
+                                       FontWeight="Bold"
+                                       FontSize="11"
+                                       FontFamily="Consolas,Menlo,Monospace" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 60s Window Countdown Pill -->
+                    <Border Background="#252014"
+                            BorderBrush="#d29922"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="10,4">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="WINDOW:"
+                                       Foreground="#8b949e"
+                                       FontSize="11"
+                                       FontWeight="SemiBold" />
+                            <TextBlock x:Name="WindowTimeText"
+                                       Text="0s / 60s"
+                                       Foreground="#e3b341"
+                                       FontWeight="Bold"
+                                       FontSize="11"
+                                       FontFamily="Consolas,Menlo,Monospace" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Performance Buckets Pill -->
+                    <Border Background="#201c2c"
+                            BorderBrush="#a371f7"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="10,4">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="BUCKETS:"
+                                       Foreground="#8b949e"
+                                       FontSize="11"
+                                       FontWeight="SemiBold" />
+                            <TextBlock x:Name="AcceptableText"
+                                       Text="25-30: 0 | 20-24: 0"
+                                       Foreground="#bc8cff"
+                                       FontWeight="Bold"
+                                       FontSize="11"
+                                       FontFamily="Consolas,Menlo,Monospace" />
+                            <TextBlock Text="|"
+                                       Foreground="#484f58"
+                                       FontSize="11" />
+                            <TextBlock x:Name="UnacceptableText"
+                                       Text="Unacc: 0"
+                                       Foreground="#f85149"
+                                       FontWeight="Bold"
+                                       FontSize="11"
+                                       FontFamily="Consolas,Menlo,Monospace" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Right Log File Path Info -->
+                <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" Spacing="2">
+                    <TextBlock Text="TELEMETRY LOG:"
+                               Foreground="#8b949e"
+                               FontSize="10"
+                               FontWeight="SemiBold"
+                               HorizontalAlignment="Right" />
+                    <TextBlock x:Name="LogPathText"
+                               Text="/var/log/benchmark/fps_metrics.log"
+                               Foreground="#58a6ff"
+                               FontSize="10"
+                               FontFamily="Consolas,Menlo,Monospace"
+                               HorizontalAlignment="Right" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Center 30-Stream Uniform Grid (6 Columns x 5 Rows) -->
+        <Border Grid.Row="1" Padding="4">
+            <UniformGrid x:Name="VideoGrid"
+                         Columns="6"
+                         Rows="5"
+                         HorizontalAlignment="Stretch"
+                         VerticalAlignment="Stretch" />
+        </Border>
+
+        <!-- Bottom Footer Status Strip -->
+        <Border Grid.Row="2"
+                Background="#14141a"
+                BorderBrush="#202028"
+                BorderThickness="0,1,0,0"
+                Padding="16,5">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <TextBlock Grid.Column="0"
+                           Text="Target: 30 streams × 1440p (2560x1440) @ 25 FPS (750 FPS total) | Memory Model: Pre-allocated byte[] / WriteableBitmap.Lock"
+                           Foreground="#6e7681"
+                           FontSize="10" />
+                <TextBlock Grid.Column="2"
+                           x:Name="FooterStatusText"
+                           Text="Benchmark Running"
+                           Foreground="#3fb950"
+                           FontWeight="SemiBold"
+                           FontSize="10" />
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
