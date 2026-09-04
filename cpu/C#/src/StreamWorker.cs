@@ -48,11 +48,17 @@ public sealed unsafe class StreamWorker : IDisposable
 
     private Task? _workerTask;
 
+    private long _currentPts = -1;
+    private long _lastPresentedTimestamp;
+    private double _lastDeltaMs;
+
     public int StreamId => _streamId;
     public string RtspUrl => _rtspUrl;
     public bool IsConnected => _isConnected;
     public ulong DecodedFrames => (ulong)Interlocked.Read(ref _decodedFrames);
     public ulong PaintedFrames => (ulong)Interlocked.Read(ref _paintedFrames);
+    public long CurrentPts => Interlocked.Read(ref _currentPts);
+    public double LastDeltaMs => _lastDeltaMs;
     public uint CurrentFps { get; set; }
     public uint CurrentPaintedFps { get; set; }
     public uint CurrentDecodedFps { get; set; }
@@ -60,7 +66,19 @@ public sealed unsafe class StreamWorker : IDisposable
     public int Height => _height;
     public WriteableBitmap? Bitmap => _writeableBitmap;
 
-    public void IncrementPaintedFrames() => Interlocked.Increment(ref _paintedFrames);
+    public void IncrementPaintedFrames() => RecordPresentedFrame(CurrentPts);
+
+    public void RecordPresentedFrame(long pts)
+    {
+        var now = System.Diagnostics.Stopwatch.GetTimestamp();
+        var prev = Interlocked.Exchange(ref _lastPresentedTimestamp, now);
+        if (prev > 0)
+        {
+            var deltaSec = (double)(now - prev) / System.Diagnostics.Stopwatch.Frequency;
+            _lastDeltaMs = deltaSec * 1000.0;
+        }
+        Interlocked.Increment(ref _paintedFrames);
+    }
 
     public event Action? FrameRendered;
 
@@ -164,7 +182,7 @@ public sealed unsafe class StreamWorker : IDisposable
                 ffmpeg.avformat_close_input(&fmtCtx);
                 if (!_cts.IsCancellationRequested)
                 {
-                    Thread.Sleep(1000);
+                    Thread.Sleep(3000);
                 }
                 continue;
             }
@@ -175,7 +193,7 @@ public sealed unsafe class StreamWorker : IDisposable
                 ffmpeg.avformat_close_input(&fmtCtx);
                 if (!_cts.IsCancellationRequested)
                 {
-                    Thread.Sleep(1000);
+                    Thread.Sleep(3000);
                 }
                 continue;
             }
@@ -187,7 +205,7 @@ public sealed unsafe class StreamWorker : IDisposable
                 ffmpeg.avformat_close_input(&fmtCtx);
                 if (!_cts.IsCancellationRequested)
                 {
-                    Thread.Sleep(1000);
+                    Thread.Sleep(3000);
                 }
                 continue;
             }
@@ -202,7 +220,7 @@ public sealed unsafe class StreamWorker : IDisposable
                 ffmpeg.avformat_close_input(&fmtCtx);
                 if (!_cts.IsCancellationRequested)
                 {
-                    Thread.Sleep(1000);
+                    Thread.Sleep(3000);
                 }
                 continue;
             }
@@ -214,7 +232,7 @@ public sealed unsafe class StreamWorker : IDisposable
                 ffmpeg.avformat_close_input(&fmtCtx);
                 if (!_cts.IsCancellationRequested)
                 {
-                    Thread.Sleep(1000);
+                    Thread.Sleep(3000);
                 }
                 continue;
             }
@@ -226,7 +244,7 @@ public sealed unsafe class StreamWorker : IDisposable
                 ffmpeg.avformat_close_input(&fmtCtx);
                 if (!_cts.IsCancellationRequested)
                 {
-                    Thread.Sleep(1000);
+                    Thread.Sleep(3000);
                 }
                 continue;
             }
@@ -243,7 +261,7 @@ public sealed unsafe class StreamWorker : IDisposable
                 ffmpeg.avformat_close_input(&fmtCtx);
                 if (!_cts.IsCancellationRequested)
                 {
-                    Thread.Sleep(1000);
+                    Thread.Sleep(3000);
                 }
                 continue;
             }
@@ -319,6 +337,8 @@ public sealed unsafe class StreamWorker : IDisposable
                                     }
                                 }
 
+                                var pts = frame->pts != ffmpeg.AV_NOPTS_VALUE ? frame->pts : frame->best_effort_timestamp;
+                                Interlocked.Exchange(ref _currentPts, pts);
                                 Interlocked.Increment(ref _decodedFrames);
                                 _hasNewFrame = true;
 
@@ -339,10 +359,15 @@ public sealed unsafe class StreamWorker : IDisposable
             _isConnected = false;
             ffmpeg.avcodec_free_context(&codecCtx);
             ffmpeg.avformat_close_input(&fmtCtx);
+            if (_swsContext != null)
+            {
+                ffmpeg.sws_freeContext(_swsContext);
+                _swsContext = null;
+            }
 
             if (!_cts.IsCancellationRequested)
             {
-                Thread.Sleep(500); // Backoff before reconnecting
+                Thread.Sleep(3000); // 3-second backoff before reconnecting per Master Spec
             }
         }
 

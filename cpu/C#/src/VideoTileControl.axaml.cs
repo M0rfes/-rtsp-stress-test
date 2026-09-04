@@ -10,10 +10,12 @@ namespace RtspStressTest;
 public class VideoImageControl : Control
 {
     private StreamWorker? _worker;
+    private long _lastPresentedPts = -1;
 
     public void AttachWorker(StreamWorker worker)
     {
         _worker = worker;
+        _lastPresentedPts = -1;
     }
 
     public override void Render(DrawingContext context)
@@ -34,7 +36,14 @@ public class VideoImageControl : Control
                     var y = (bounds.Height - h) / 2;
 
                     context.DrawImage(bmp, new Rect(x, y, w, h));
-                    _worker.IncrementPaintedFrames();
+
+                    // Effective FPS Standard: Only increment if new Presentation Timestamp (PTS)
+                    var curPts = _worker.CurrentPts;
+                    if (curPts != _lastPresentedPts && curPts >= 0)
+                    {
+                        _lastPresentedPts = curPts;
+                        _worker.RecordPresentedFrame(curPts);
+                    }
                 }
             }
         }

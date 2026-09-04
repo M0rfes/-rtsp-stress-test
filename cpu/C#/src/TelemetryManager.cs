@@ -93,6 +93,8 @@ public sealed class TelemetryManager
     private readonly List<ulong> _prevPaintedFrames = new();
     private readonly List<ulong> _prevDecodedFrames = new();
     private int _secondsInWindow;
+    private long _accumulatedActiveStreams;
+    private int _activeStreamsSampleCount;
 
     public float AggregateFps { get; private set; }
     public int LiveStreams { get; private set; }
@@ -128,6 +130,18 @@ public sealed class TelemetryManager
                 var prevP = _prevPaintedFrames[i];
                 var prevD = _prevDecodedFrames[i];
 
+                if (!worker.IsConnected)
+                {
+                    // Phase 2 Rule: Do NOT count frames or log bucket seconds for dropped / inactive streams
+                    _prevPaintedFrames[i] = paintedCur;
+                    _prevDecodedFrames[i] = decodedCur;
+                    worker.CurrentPaintedFps = 0;
+                    worker.CurrentDecodedFps = 0;
+                    worker.CurrentFps = 0;
+                    continue;
+                }
+
+                live++;
                 var deltaP = (paintedCur >= prevP) ? (uint)(paintedCur - prevP) : (uint)paintedCur;
                 var deltaD = (decodedCur >= prevD) ? (uint)(decodedCur - prevD) : (uint)decodedCur;
 
@@ -142,12 +156,7 @@ public sealed class TelemetryManager
                 worker.CurrentFps = delta;
                 totalFps += delta;
 
-                if (worker.IsConnected)
-                {
-                    live++;
-                }
-
-                // Categorize into performance buckets
+                // Categorize active streams into performance buckets
                 if (delta >= 25)
                 {
                     _windowBuckets.Fps25To30++;
@@ -172,6 +181,8 @@ public sealed class TelemetryManager
 
             AggregateFps = totalFps;
             LiveStreams = live;
+            _accumulatedActiveStreams += live;
+            _activeStreamsSampleCount++;
             _secondsInWindow++;
 
             // Flush rolling 60-second window
@@ -179,6 +190,8 @@ public sealed class TelemetryManager
             {
                 FlushWindow();
                 _windowBuckets.Reset();
+                _accumulatedActiveStreams = 0;
+                _activeStreamsSampleCount = 0;
                 _secondsInWindow = 0;
             }
         }
@@ -202,6 +215,9 @@ public sealed class TelemetryManager
     private void FlushWindow()
     {
         var timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss'Z'");
+        var avgActiveStreams = _activeStreamsSampleCount > 0 
+            ? (int)Math.Round((double)_accumulatedActiveStreams / _activeStreamsSampleCount) 
+            : LiveStreams;
 
         var payload = new TelemetryPayload
         {
@@ -210,7 +226,7 @@ public sealed class TelemetryManager
             Framework = "csharp_avalonia",
             HardwareMode = "cpu",
             WindowDurationSeconds = 60,
-            ActiveStreams = _activeStreams,
+            ActiveStreams = avgActiveStreams,
             FpsStreamSeconds = new FpsStreamSecondsWrapper
             {
                 Acceptable = new AcceptableBuckets
