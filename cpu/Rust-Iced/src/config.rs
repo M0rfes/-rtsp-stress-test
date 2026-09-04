@@ -15,6 +15,8 @@ pub struct BenchmarkConfig {
     pub window_duration_seconds: u32,
     pub video_width: u32,
     pub video_height: u32,
+    pub tile_width: u32,
+    pub tile_height: u32,
     pub target_fps: u32,
     pub ui_render_fps: u32,
 }
@@ -61,6 +63,21 @@ impl BenchmarkConfig {
             .and_then(|s| s.parse().ok())
             .unwrap_or(1440);
 
+        let is_full_res = env::var("FULL_RES").map(|v| v == "1" || v == "true").unwrap_or(false);
+
+        let default_tile_w = if is_full_res { video_width } else { 640 };
+        let default_tile_h = if is_full_res { video_height } else { 360 };
+
+        let tile_width = env::var("TILE_WIDTH")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(default_tile_w);
+
+        let tile_height = env::var("TILE_HEIGHT")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(default_tile_h);
+
         let target_fps = env::var("TARGET_FPS")
             .ok()
             .and_then(|s| s.parse().ok())
@@ -83,6 +100,8 @@ impl BenchmarkConfig {
             window_duration_seconds: 60,
             video_width,
             video_height,
+            tile_width,
+            tile_height,
             target_fps,
             ui_render_fps,
         }

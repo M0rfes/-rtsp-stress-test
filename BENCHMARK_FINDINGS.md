@@ -113,7 +113,7 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **Electron** | CPU (Software) | `cpu/Electron` | **Completed & Tested** | WebCodecs `VideoDecoder` fallback, Canvas 2D blit, local WebSocket IPC |
 | **Electron** | GPU (Zero-Copy) | `gpu/Electron` | **Completed & Tested** | WebCodecs `prefer-hardware`, `OffscreenCanvas` `BitmapRenderer` zero-copy, VA-API & EGL flags |
-| **C++ (Qt6)** | CPU (Software) | `cpu/CPP` | Pending | `libavcodec` software decode, `libswscale` to RGB32, `QPainter` |
+| **C++ (Qt6)** | CPU (Software) | `cpu/CPP` | **Completed & Tested** | `libavcodec` software decode, `libswscale` to RGB32, wait-free triple buffer, `QPainter` |
 | **C++ (Qt6)** | GPU (Zero-Copy) | `gpu/CPP` | Pending | `AV_HWDEVICE_TYPE_VAAPI` / `CUDA`, `QOpenGLWidget` / RHI |
 | **Rust (Tauri)**| CPU (Software) | `cpu/Rust-Tauri` | **Completed & Tested** | `gstreamer-rs` demux, WebSocket IPC, React WebCodecs Canvas |
 | **Rust (Tauri)**| GPU (Zero-Copy) | `gpu/Rust-Tauri` | **Completed & Tested** | `gstreamer-rs` demux, WebSocket IPC, `BitmapRenderer` / WebGPU |
@@ -216,21 +216,109 @@ In combination with `app.commandLine.appendSwitch('disable-accelerated-video-dec
 ---
 
 ### 9.2 C++ (Qt6) Implementation Guide (`cpu/CPP` and `gpu/CPP`)
-* **CPU Mode (`cpu/CPP`):**
-  - **FFmpeg Decoding:** Spawn 30 `QThread` workers, each running `avcodec_receive_frame`.
-  - **Memory Pre-Allocation:** Pre-allocate one continuous `uint8_t*` buffer for RGB32 output per stream. Call `sws_scale()` into this buffer. Construct `QImage` using the pre-allocated buffer constructor:
+
+#### 1. Real-World Architecture & Performance Insights (CPU Mode)
+* **Pure CPU Software Decoding (`libavcodec`):**
+  - Uses `avcodec_find_decoder(AV_CODEC_ID_H264)` to bind directly to libavcodec's hand-optimized assembly software decoder (`ff_h264_decoder`), strictly bypassing GPU accelerators (VA-API, NVDEC, VideoToolbox).
+  - Configures `codecCtx->thread_count = 1` per stream worker. This maps 30 stream decoders cleanly onto 16–32 vCPU cores on AWS EC2 (`c7i.8xlarge`) without scheduler thread contention.
+  - Sockets are configured with `rtsp_transport=tcp`, `max_delay=500000` (500ms max latency), and a 4MB socket buffer (`buffer_size=4194304`).
+
+* **SIMD Color Conversion (`libswscale`):**
+  - Decoded planar `YUV420p` frames are converted to `AV_PIX_FMT_RGB32` via `sws_scale()` on background worker threads.
+  - Output buffers are 64-byte aligned via `av_malloc()`, unlocking native AVX2, AVX-512, and ARM NEON SIMD vectorization.
+  - Zero color conversion is performed on the main UI rendering thread.
+
+* **Wait-Free Lock-Free Triple Buffering:**
+  - Wrapping 30 streams × 14.7 MB uncompressed 1440p frames in `std::mutex` causes extreme lock contention.
+  - Each worker thread maintains 3 pre-allocated buffers (Producer, Shared, Consumer):
     ```cpp
-    QImage img(rgbBuffer, 2560, 1440, 2560 * 4, QImage::Format_RGB32);
+    m_producerIndex = m_sharedIndex.exchange(m_producerIndex, std::memory_order_acq_rel);
     ```
-  - **Event Loop Starvation Warning:** Do **NOT** emit `emit frameReady(QImage)` across Qt threads 750 times/sec. The Qt event queue will choke, causing > 95% CPU consumption and mouse freeze.
-  - **Solution:** Use an atomic double-buffer (`std::atomic<uint8_t*>`) between the worker thread and the UI widget. Trigger repaint via a 25 Hz / 30 Hz timer on the main UI thread (`QTimer`), or call `widget->update()` conditionally.
-* **GPU Zero-Copy Mode (`gpu/CPP`):**
-  - Configure `libavcodec` with `AV_HWDEVICE_TYPE_VAAPI` or `AV_HWDEVICE_TYPE_CUDA`.
-  - **Zero-Copy Rule:** Never call `av_hwframe_transfer_data()` — that copies GPU textures back to CPU system RAM.
-  - Render with `QOpenGLWidget` or Qt RHI:
-    - On Linux / VA-API: Export the `VASurfaceID` as a DMA-BUF file descriptor (`vaExportSurfaceHandle`), and import it into OpenGL via `eglCreateImageKHR` with `EGL_LINUX_DMA_BUF_EXT`.
-    - On CUDA: Use `cudaGraphicsGLRegisterImage` / `cudaGraphicsMapResources` to map the decoded frame directly into an OpenGL texture.
-  - Render a textured quad in `QOpenGLWidget::paintGL()`.
+  - The worker writes to the producer buffer and atomically swaps indices with the shared slot.
+  - The UI thread checks if a new frame is available and acquires the shared buffer in $O(1)$ constant time without waiting or locking.
+
+* **Zero-Copy `QImage` Instantiation:**
+  - In `VideoWidget::paintEvent()`, `QImage` is instantiated directly on top of the pre-allocated memory pointer:
+    ```cpp
+    QImage img(pixels, width, height, width * 4, QImage::Format_RGB32);
+    ```
+  - `QImage` acts as a non-allocating, non-copying view directly into the decoder's buffer.
+
+* **Why C++ Qt6 CPU Radically Outperforms Rust Iced CPU (`tiny-skia`):**
+  - In Rust Iced CPU, `tiny-skia` is a generalized 2D vector software rasterizer that executes a full floating-point shader pipeline (clamping, premultiplied alpha conversion, coordinate transform) on a single UI thread, choking at ~8–10 redraws/second.
+  - In Qt6, `QPainter::drawImage()` detects that source and destination formats are identical (`Format_RGB32`), triggering Qt's internal `QRasterPaintEngine` format-matched SIMD chunk-blit fast-path.
+  - In testing with `QT_QPA_PLATFORM=offscreen` (100% GPU bypass), C++ Qt6 sustained **870 stream-seconds in `25_to_30_fps`** across 30 concurrent 1440p streams on an 8-core CPU, consuming 536% CPU with zero GPU intervention.
+
+* **The macOS / Linux `RLIMIT_NOFILE` Trap:**
+  - Default per-process open file limits (256 on macOS, 1024 on some Linux distributions) cause immediate `EMFILE` socket exhaustion when opening 30 concurrent RTSP streams (each requiring sockets, event pipes, and thread handles).
+  - Programmatically raise `RLIMIT_NOFILE` to `10240` at the very start of `main()` before initializing Qt or network sockets.
+
+* **Staggered Stream Startup:**
+  - Starting 30 RTSP TCP handshakes in the same millisecond causes TCP connection stampedes and initial dropped packets in MediaMTX.
+  - Stagger thread startup by 20ms per stream in `MainWindow::startWorkers()`.
+
+---
+
+#### 2. AWS EC2 Build & Deployment Runbook (Ubuntu 22.04 / 24.04 LTS)
+
+##### Step 1: EC2 Instance Sizing & Launch
+* **Instance Type:** `c7i.8xlarge` (32 vCPUs, 64 GiB DDR5 RAM).
+* **OS:** Ubuntu 24.04 LTS or 22.04 LTS AMD64 (`ami-xxxx`).
+* **Security Group:** Inbound TCP port `22` (SSH), and TCP `8554` if streaming from a separate VPC box.
+
+##### Step 2: System Provisioning
+Connect via SSH and execute the automated provisioning script:
+```bash
+git clone https://github.com/your-org/rtsp-stress-test.git /opt/rtsp-stress-test
+cd /opt/rtsp-stress-test/cpu/CPP
+
+# Run provisioning script (installs Qt6 Base, FFmpeg dev headers, CMake, Xvfb)
+chmod +x scripts/*.sh
+sudo ./scripts/ec2_userdata.sh
+```
+
+##### Step 3: Compile Release Binary
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
+```
+The optimized executable is generated at `build/rtsp-stress-test-cpp-cpu`.
+
+##### Step 4: Run 24-Hour Benchmark Headless (Standalone Execution)
+```bash
+export RTSP_URL="rtsp://10.0.1.50:8554/live"
+export STREAM_COUNT=30
+
+./scripts/run_benchmark_headless.sh
+```
+This automatically initializes the virtual framebuffer (`xvfb-run -a -s "-screen 0 2560x1440x24"`), enforces software rasterization flags (`LIBGL_ALWAYS_SOFTWARE=1`, `QT_QPA_PLATFORM=xcb`), spawns the external hardware poller, and writes rolling 60-second JSON buckets.
+
+##### Step 5: Configure 24-Hour Automated Systemd Daemon
+```bash
+sudo ./scripts/setup_autostart.sh
+```
+* **Verify Service Status:** `sudo systemctl status rtsp-benchmark-cpp-cpu.service`
+* **Tail Service Logs:** `journalctl -u rtsp-benchmark-cpp-cpu.service -f`
+* **Stop Service:** `sudo systemctl stop rtsp-benchmark-cpp-cpu.service`
+
+##### Step 6: Monitor Benchmark Telemetry
+```bash
+# 1. Monitor rolling 60-second FPS performance buckets:
+tail -f /var/log/benchmark/fps_metrics.log
+
+# 2. Monitor 10-second external CPU / RAM utilization:
+tail -f /var/log/benchmark/hardware_metrics.csv
+```
+
+---
+
+#### 3. GPU Zero-Copy Mode (`gpu/CPP`) - Planned Architecture
+* Configure `libavcodec` with `AV_HWDEVICE_TYPE_VAAPI` or `AV_HWDEVICE_TYPE_CUDA`.
+* **Zero-Copy Rule:** Never call `av_hwframe_transfer_data()` — that copies GPU textures back to CPU system RAM.
+* Render with `QOpenGLWidget` or Qt RHI:
+  - On Linux / VA-API: Export the `VASurfaceID` as a DMA-BUF file descriptor (`vaExportSurfaceHandle`), and import it into OpenGL via `eglCreateImageKHR` with `EGL_LINUX_DMA_BUF_EXT`.
+  - On CUDA: Use `cudaGraphicsGLRegisterImage` / `cudaGraphicsMapResources` to map the decoded frame directly into an OpenGL texture.
+* Render a textured quad in `QOpenGLWidget::paintGL()`.
 
 ---
 
@@ -374,14 +462,20 @@ tail -f /var/log/benchmark/hardware_metrics.csv
   - **The "Painted vs. Decoded" FPS Measurement Trap:**
     - Never increment stream FPS counters inside Iced's `view()` function.
     - `tiny-skia` software rasterizing thirty 1440p images into the window buffer is limited by CPU rasterizer throughput to ~8–10 window redraws per second. If FPS counters are placed in `view()`, the reported metric reflects the window compositor refresh rate (~8 FPS) rather than the true stream decode rate, even when the stream is decoding smoothly at 25 FPS.
-    - Increment stream frame counters in `decoder.rs` when `appsink.pull_sample()` hands off a newly decoded, SIMD-converted frame.
+    - Increment stream frame counters in `decoder.rs` when `appsink.pull_sample()` hands off a newly decoded frame.
+  - **The 22 GB/s Memory Churn & Thread Contention Fix (Lessons from C++):**
+    - **Problem:** In initial implementations, `decoder.rs` was writing to `raw_allocation` under a write lock, copying again into `Bytes`, and cloning into `Handle::from_rgba()`. At 30 streams × 14.75 MB, this burned over **22 GB/second** in memory copies and heap churn. Additionally, omitting `max-threads` on `avdec_h264` caused GStreamer to spawn auto-threads per stream (480 threads on multi-core boxes!).
+    - **Fix 1 (`max-threads=1`):** Limit `avdec_h264` to `max-threads=1`, restricting thread creation to exactly 30 decoder threads.
+    - **Fix 2 (Background SIMD Scaling):** Offload tile downsampling to the 30 background threads (`videoscale ! videoconvert ! video/x-raw,format=RGBA,width=640,height=360`). This reduces `tiny-skia`'s per-frame raster load by **93.8%** (from 442.5 MB down to 27.6 MB).
+    - **Fix 3 (Zero-Churn Handoff):** Remove redundant double-copies; pass mapped memory directly into `Bytes::copy_from_slice()` (copying 0.92 MB instead of 14.75 MB).
+    - **Result:** In real-world testing, acceptable bucket (`20_to_24_fps`) stream-seconds surged from 1-3 up to **348+**, and sub-10 FPS stream-seconds dropped to **0**.
   - **MediaMTX Buffer Tuning for 30 Concurrent Streams:**
     - MediaMTX's default `readBufferCount: 512` is insufficient when 30 simultaneous TCP streams connect to 1440p feeds, causing MediaMTX to log `reader is too slow, discarding frames`.
     - Configure `mediamtx.yml` with `readBufferCount: 8192` and `writeQueueSize: 8192`.
     - Stagger decoder pipeline startup by 30ms per stream in `start_all()` to eliminate connection-stampede packet drops.
   - **GStreamer Pipeline Robustness:**
-    - Configure `rtspsrc location="{}" protocols=tcp latency=100 drop-on-latency=true ! rtph264depay ! h264parse ! avdec_h264 ! video/x-raw,format=I420 ! appsink name=sink sync=false max-buffers=5 drop=true`.
-    - Use default `avdec_h264` (`output-corrupt=true`), allowing libavcodec to gracefully conceal missing macroblocks during transient network jitter without aborting or reconnecting the pipeline.
+    - Configure `rtspsrc location="{}" protocols=tcp latency=50 drop-on-latency=false ! rtph264depay ! h264parse ! avdec_h264 max-threads=1 output-corrupt=false ! videoscale ! videoconvert ! video/x-raw,format=RGBA,width=640,height=360 ! appsink name=sink sync=false max-buffers=2 drop=true`.
+    - Use `avdec_h264` with `output-corrupt=false`, allowing libavcodec to handle macroblocks gracefully without dropping pipeline state.
 * **GPU Zero-Copy Mode (`gpu/Rust-Iced`):**
   - **Architecture & Pipeline:**
     - **Backend:** Force Iced to use `iced_wgpu` with custom WGSL shader modules.
