@@ -4,8 +4,9 @@ use gstreamer::prelude::*;
 use gstreamer_app as gst_app;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tokio::sync::broadcast;
+use crate::platform::STREAM_STAGGER_MS;
 
 #[derive(Clone)]
 pub struct StreamBroadcaster {
@@ -220,8 +221,15 @@ impl StreamPool {
     }
 
     pub fn start_all(&self) {
-        println!("[StreamPool] Starting {} RTSP demuxers...", self.demuxers.len());
-        for demuxer in &self.demuxers {
+        println!(
+            "[StreamPool] Starting {} RTSP demuxers (stagger {}ms)...",
+            self.demuxers.len(),
+            STREAM_STAGGER_MS
+        );
+        for (i, demuxer) in self.demuxers.iter().enumerate() {
+            if i > 0 {
+                std::thread::sleep(Duration::from_millis(STREAM_STAGGER_MS));
+            }
             demuxer.start();
         }
     }

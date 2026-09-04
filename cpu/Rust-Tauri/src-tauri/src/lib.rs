@@ -1,5 +1,6 @@
 pub mod config;
 pub mod demuxer;
+pub mod platform;
 pub mod telemetry;
 pub mod ws_server;
 
@@ -11,15 +12,9 @@ use telemetry::TelemetryManager;
 use ws_server::VideoWebSocketServer;
 
 pub fn run() {
-    // 1. Initialize logging
     env_logger::init();
-
-    // 2. Enforce software-only rendering environment flags
-    // Constraint: "Ensure no hardware-acceleration flags are passed to the Tauri WebView, forcing it into software fallback."
-    if cfg!(target_os = "linux") {
-        std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
-        std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
-    }
+    platform::raise_file_descriptor_limit();
+    platform::apply_cpu_webview_env();
 
     // 3. Initialize GStreamer
     gstreamer::init().expect("Failed to initialize GStreamer");
@@ -30,6 +25,7 @@ pub fn run() {
     let pid = std::process::id();
 
     println!("=== RTSP 30-Stream Stress Test (Rust Tauri CPU Benchmark) ===");
+    println!("Platform:          {}", platform::name());
     println!("Process PID:       {}", pid);
     println!("Stream Count:      {}", stream_count);
     println!("RTSP Target URL:   {}", config.rtsp_url);

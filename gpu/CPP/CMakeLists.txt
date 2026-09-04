@@ -60,6 +60,8 @@ add_executable(rtsp-stress-test-cpp-gpu
     src/main.cpp
     src/config.h
     src/config.cpp
+    src/platform.h
+    src/platform.cpp
     src/hw_accel.h
     src/hw_accel.cpp
     src/stream_worker.h

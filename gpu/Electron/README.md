@@ -2,6 +2,8 @@
 
 This implementation fulfills the **GPU-Accelerated (Zero-Copy)** benchmark specification for Electron from the project `README.md` and `gpu/Electron/prompt.md`.
 
+Platform hooks: `src/main/platform.ts` + `scripts/launch-electron.js`. See [BENCHMARK_FINDINGS.md §9.0](../../BENCHMARK_FINDINGS.md). Headed `npm start` must not hardcode `--use-gl=egl`. Apple Silicon VideoToolbox saturates around 8–16 simultaneous 1440p sessions — headed Mac UI tests at 10–20 streams; 30 is for AWS NVDEC.
+
 ## Architecture Overview & Zero-Copy Implementation
 
 1. **Node.js Backend (Main Process):**
@@ -35,16 +37,12 @@ This implementation fulfills the **GPU-Accelerated (Zero-Copy)** benchmark speci
      - `transferFromImageBitmap(bitmap)` transfers the underlying GPU texture directly to the canvas swapchain with zero-copy GPU-to-GPU memory transfer.
      - `videoFrame.close()` is invoked immediately to release frame handles and prevent VRAM leaks.
 
-5. **Chromium Hardware Flags (Linux & Nvidia VA-API):**
-   - Headless Linux execution on AWS EC2 utilizes VA-API translation on Nvidia GPUs via Chromium flags:
-     - `--enable-features=VaapiVideoDecoder,VaapiVideoDecodeLinuxGL,VaapiOnNvidiaGPUs`
-     - `--use-gl=egl`
-     - `--disable-software-rasterizer`
-     - `--no-sandbox`
-     - `--disable-dev-shm-usage`
-     - `--ignore-gpu-blocklist`
-     - `--enable-gpu-rasterization`
-     - `--enable-zero-copy`
+5. **Chromium Hardware Flags (per OS — never hardcode Linux flags on macOS):**
+   - Applied in `src/main/platform.ts` before `app.whenReady()`.
+   - **Linux / Nvidia:** `--enable-features=VaapiVideoDecoder,VaapiVideoDecodeLinuxGL,VaapiOnNvidiaGPUs --use-gl=egl --disable-software-rasterizer --no-sandbox --disable-dev-shm-usage` plus `--ignore-gpu-blocklist --enable-gpu-rasterization --enable-zero-copy`.
+   - **macOS:** `--use-angle=metal --enable-features=Metal,CanvasOopRasterization,AcceleratedVideoDecodeMac,IOSurfaceCapturer --enable-native-gpu-memory-buffers --enable-gpu-memory-buffer-video-frames`. Do **not** pass `--use-gl=egl`.
+   - **Windows:** `--use-angle=d3d11 --enable-features=D3D11VideoDecoder,CanvasOopRasterization`.
+   - Headless AWS scripts may still pass VA-API flags under `xvfb-run`. Headed `npm start` uses `scripts/launch-electron.js` (`ulimit -n 10240`).
 
 6. **Dual Telemetry Architecture:**
    - **Internal FPS Logging (`fps_metrics.log`):**
@@ -59,6 +57,8 @@ This implementation fulfills the **GPU-Accelerated (Zero-Copy)** benchmark speci
 ## Development on macOS
 
 The codebase is engineered to run seamlessly on macOS for development and testing while targeting AWS EC2 Ubuntu Linux for headless benchmark execution.
+
+**macOS VideoToolbox cap:** Apple Silicon hardware decode saturates around 8–16 simultaneous 1440p sessions. Headed 30-stream runs will freeze the UI even while the RTSP publisher stays at 25 FPS. Use `STREAM_COUNT=10` (or 20) for local GPU UI tests; keep 30 for AWS NVDEC.
 
 ### 1. Install Dependencies
 ```bash

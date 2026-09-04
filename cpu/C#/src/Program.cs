@@ -17,8 +17,9 @@ public static class Program
             Console.WriteLine(" 6-Hour RTSP 30-Video Grid Benchmark (C# Avalonia CPU Decode) ");
             Console.WriteLine("===============================================================");
 
-            // 1. Raise OS file descriptor limit to avoid EMFILE socket exhaustion
-            FFmpegHelper.RaiseFileDescriptorLimit(10240);
+            FFmpegHelper.RaiseFileDescriptorLimit(Platform.NofileTarget);
+            Platform.LogCpuPath();
+            Console.WriteLine($"[Platform] OS: {Platform.Name}");
 
             // 2. Load configuration from CLI flags and environment variables
             var config = AppConfig.Load(args);

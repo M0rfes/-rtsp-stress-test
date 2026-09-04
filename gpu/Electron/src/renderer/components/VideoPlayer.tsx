@@ -18,6 +18,14 @@ interface VideoPlayerProps {
   wsPort: number;
 }
 
+type HwAccelPref = 'no-preference' | 'prefer-hardware' | 'prefer-software';
+
+function isMacPlatform(): boolean {
+  const preloadPlatform = (window as unknown as { electronBenchmark?: { platform?: string } }).electronBenchmark?.platform;
+  if (preloadPlatform) return preloadPlatform === 'darwin';
+  return /Mac/i.test(navigator.userAgent);
+}
+
 export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ streamId, wsPort }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fpsBadgeRef = useRef<HTMLSpanElement | null>(null);
@@ -37,6 +45,9 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
   const currentCodecRef = useRef<string>('');
   const decoderRef = useRef<VideoDecoder | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const hwAccelRef = useRef<HwAccelPref>('prefer-hardware');
+  const presentSizeRef = useRef({ width: 0, height: 0 });
+  const isMac = isMacPlatform();
 
   // Offscreen canvas and BitmapRenderer context refs
   const offscreenCanvasRef = useRef<OffscreenCanvas | null>(null);
@@ -122,6 +133,20 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
       return;
     }
 
+    const updatePresentSize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const cssW = Math.max(1, Math.round(canvas.clientWidth * dpr));
+      const cssH = Math.max(1, Math.round(canvas.clientHeight * dpr));
+      presentSizeRef.current = { width: cssW, height: cssH };
+    };
+    updatePresentSize();
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(updatePresentSize)
+      : null;
+    if (resizeObserver) {
+      resizeObserver.observe(canvas.parentElement || canvas);
+    }
+
     // Helper to find SPS in Annex B buffer and extract codec string (H.264 Level 5.0+ for 1440p)
     const extractSpsCodec = (data: Uint8Array): string | null => {
       for (let i = 0; i < data.length - 5; i++) {
@@ -144,91 +169,106 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
       return null;
     };
 
-    // Initialize hardware-accelerated VideoDecoder
-    try {
-      const decoder = new VideoDecoder({
-        output: (videoFrame: VideoFrame) => {
+    const onDecodedFrame = (videoFrame: VideoFrame) => {
+      if (isDestroyed) {
+        videoFrame.close();
+        return;
+      }
+
+      const curPts = videoFrame.timestamp;
+      if (lastPtsRef.current !== null && curPts === lastPtsRef.current) {
+        videoFrame.close();
+        return;
+      }
+      lastPtsRef.current = curPts;
+
+      const targetW = isMac && presentSizeRef.current.width > 0
+        ? presentSizeRef.current.width
+        : videoFrame.displayWidth;
+      const targetH = isMac && presentSizeRef.current.height > 0
+        ? presentSizeRef.current.height
+        : videoFrame.displayHeight;
+
+      if (offscreen) {
+        if (offscreen.width !== targetW || offscreen.height !== targetH) {
+          offscreen.width = targetW;
+          offscreen.height = targetH;
+        }
+      } else if (canvas) {
+        if (canvas.width !== targetW || canvas.height !== targetH) {
+          canvas.width = targetW;
+          canvas.height = targetH;
+        }
+      }
+
+      pendingFramesRef.current++;
+
+      const bitmapOptions: ImageBitmapOptions | undefined = isMac
+        ? { resizeWidth: targetW, resizeHeight: targetH, resizeQuality: 'low' }
+        : undefined;
+
+      const bitmapPromise = bitmapOptions
+        ? createImageBitmap(videoFrame, bitmapOptions)
+        : createImageBitmap(videoFrame);
+      bitmapPromise
+        .then((bitmap) => {
+          videoFrame.close();
+          pendingFramesRef.current--;
+
           if (isDestroyed) {
-            videoFrame.close();
+            bitmap.close();
             return;
           }
 
-          // Effective FPS: Presentation Timestamp (PTS) uniqueness check
-          const curPts = videoFrame.timestamp;
-          if (lastPtsRef.current !== null && curPts === lastPtsRef.current) {
-            videoFrame.close();
-            return;
-          }
-          lastPtsRef.current = curPts;
+          if (bitmapCtxRef.current) {
+            bitmapCtxRef.current.transferFromImageBitmap(bitmap);
 
-          // Adjust canvas/offscreen dimensions to match decoded frame
-          if (offscreen) {
-            if (offscreen.width !== videoFrame.displayWidth || offscreen.height !== videoFrame.displayHeight) {
-              offscreen.width = videoFrame.displayWidth;
-              offscreen.height = videoFrame.displayHeight;
+            const now = performance.now();
+            if (lastPresentedTimeRef.current > 0) {
+              lastDeltaMsRef.current = now - lastPresentedTimeRef.current;
             }
-          } else if (canvas) {
-            if (canvas.width !== videoFrame.displayWidth || canvas.height !== videoFrame.displayHeight) {
-              canvas.width = videoFrame.displayWidth;
-              canvas.height = videoFrame.displayHeight;
+            lastPresentedTimeRef.current = now;
+            if (!isConnectedRef.current) {
+              connectedSinceRef.current = now;
             }
+            isConnectedRef.current = true;
+            frameCountRef.current++;
+          } else {
+            bitmap.close();
           }
 
-          // Prevent queue buildup under extreme load
-          if (pendingFramesRef.current > 2) {
-            videoFrame.close();
-            return;
+          if (placeholderRef.current && placeholderRef.current.style.display !== 'none') {
+            placeholderRef.current.style.display = 'none';
           }
+        })
+        .catch(() => {
+          pendingFramesRef.current--;
+          videoFrame.close();
+        });
+    };
 
-          pendingFramesRef.current++;
+    const createDecoder = (): VideoDecoder | null => {
+      try {
+        return new VideoDecoder({
+          output: onDecodedFrame,
+          error: (err) => {
+            console.warn(`[Stream ${streamId}] VideoDecoder error:`, err);
+            hasConfiguredRef.current = false;
+            if (isMac && hwAccelRef.current === 'prefer-hardware') {
+              hwAccelRef.current = 'no-preference';
+              console.warn(`[Stream ${streamId}] VideoToolbox session saturated, falling back to no-preference`);
+            }
+          },
+        });
+      } catch (err) {
+        console.error(`[Stream ${streamId}] Failed to initialize VideoDecoder:`, err);
+        return null;
+      }
+    };
 
-          // Zero-copy GPU-to-GPU transfer via ImageBitmap and BitmapRenderer context
-          createImageBitmap(videoFrame)
-            .then((bitmap) => {
-              videoFrame.close();
-              pendingFramesRef.current--;
-
-              if (isDestroyed) {
-                bitmap.close();
-                return;
-              }
-
-              if (bitmapCtxRef.current) {
-                // Direct zero-copy transfer of GPU texture into canvas swapchain
-                bitmapCtxRef.current.transferFromImageBitmap(bitmap);
-
-                // Frame pacing inter-frame delta calculation (tn - tn-1)
-                const now = performance.now();
-                if (lastPresentedTimeRef.current > 0) {
-                  lastDeltaMsRef.current = now - lastPresentedTimeRef.current;
-                }
-                lastPresentedTimeRef.current = now;
-                if (!isConnectedRef.current) {
-                  connectedSinceRef.current = now;
-                }
-                isConnectedRef.current = true;
-                frameCountRef.current++;
-              } else {
-                bitmap.close();
-              }
-
-              if (placeholderRef.current && placeholderRef.current.style.display !== 'none') {
-                placeholderRef.current.style.display = 'none';
-              }
-            })
-            .catch((err) => {
-              pendingFramesRef.current--;
-              videoFrame.close();
-            });
-        },
-        error: (err) => {
-          console.error(`[Stream ${streamId}] VideoDecoder error:`, err);
-        },
-      });
-
-      decoderRef.current = decoder;
-    } catch (err) {
-      console.error(`[Stream ${streamId}] Failed to initialize VideoDecoder:`, err);
+    decoderRef.current = createDecoder();
+    if (!decoderRef.current) {
+      return;
     }
 
     // Connect to WebSocket stream
@@ -255,15 +295,22 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
       const timestampUs = Number(view.getBigInt64(1));
       const nalData = new Uint8Array(buffer, 9);
 
-      // On keyframe, extract SPS to configure or reconfigure VideoDecoder
       if (isKey) {
         const detectedCodec = extractSpsCodec(nalData) || 'avc1.42c032';
-        if (!hasConfiguredRef.current || currentCodecRef.current !== detectedCodec) {
+        const needsConfig = !hasConfiguredRef.current
+          || currentCodecRef.current !== detectedCodec
+          || decoderRef.current.state !== 'configured';
+        if (needsConfig) {
           try {
+            if (decoderRef.current.state === 'closed') {
+              const nextDecoder = createDecoder();
+              if (!nextDecoder) return;
+              decoderRef.current = nextDecoder;
+            }
             decoderRef.current.configure({
               codec: detectedCodec,
               avc: { format: 'annexb' },
-              hardwareAcceleration: 'prefer-hardware', // Explicitly request GPU decoding
+              hardwareAcceleration: hwAccelRef.current,
               optimizeForLatency: true,
             });
             hasConfiguredRef.current = true;
@@ -276,6 +323,10 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
 
       // Can only decode if decoder has been configured with a keyframe
       if (!hasConfiguredRef.current || decoderRef.current.state !== 'configured') {
+        return;
+      }
+
+      if (!isKey && decoderRef.current.decodeQueueSize > 2) {
         return;
       }
 
@@ -301,6 +352,9 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
 
     return () => {
       isDestroyed = true;
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;

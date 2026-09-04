@@ -1,5 +1,6 @@
 mod config;
 mod decoder;
+mod platform;
 mod telemetry;
 mod ui;
 
@@ -118,15 +119,8 @@ impl BenchmarkApp {
 
 fn main() -> iced::Result {
     env_logger::init();
-
-    #[cfg(unix)]
-    unsafe {
-        let mut rl = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
-        if libc::getrlimit(libc::RLIMIT_NOFILE, &mut rl) == 0 {
-            rl.rlim_cur = std::cmp::min(10240, rl.rlim_max);
-            libc::setrlimit(libc::RLIMIT_NOFILE, &rl);
-        }
-    }
+    platform::raise_file_descriptor_limit();
+    platform::log_cpu();
 
     // Initialize GStreamer
     if let Err(e) = gstreamer::init() {
@@ -136,6 +130,7 @@ fn main() -> iced::Result {
 
     let config = BenchmarkConfig::from_env();
     println!("=== 6-Hour RTSP Video Grid Benchmark (Rust Iced CPU) ===");
+    println!("Platform:          {}", platform::name());
     println!("Machine ID:        {}", config.machine_id);
     println!("Stream Count:      {}", config.stream_count);
     println!("Target RTSP URL:   {}", config.rtsp_url);

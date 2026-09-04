@@ -1,6 +1,8 @@
 # 30-Camera RTSP Video Grid Benchmark (C# Avalonia CPU Software Decode)
 
-This implementation fulfills the **CPU-Only (Software Decoding)** benchmark specification for C# Avalonia (.NET 10) from the root [README.md](../../README.md), [BENCHMARK_FINDINGS.md](../../BENCHMARK_FINDINGS.md), and [cpu/C#/prompt.md](prompt.md).
+This implementation fulfills the **CPU-Only (Software Decoding)** benchmark specification for C# Avalonia (.NET 10) from the root [README.md](../../README.md), [BENCHMARK_FINDINGS.md](../../BENCHMARK_FINDINGS.md) §9.0, and [cpu/C#/prompt.md](prompt.md).
+
+`src/Platform.cs` holds `NofileTarget=10240` and `StreamStaggerMs=20`. Avalonia `UsePlatformDetect()` keeps Metal on macOS while decode stays `ff_h264_decoder`.
 
 ---
 

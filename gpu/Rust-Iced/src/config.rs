@@ -116,6 +116,30 @@ impl BenchmarkConfig {
 }
 
 fn detect_hardware_decoder() -> String {
+    #[cfg(target_os = "macos")]
+    {
+        if gstreamer::ElementFactory::find("vtdec").is_some() {
+            return "vtdec".to_string();
+        }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        if gstreamer::ElementFactory::find("d3d11h264dec").is_some() {
+            return "d3d11h264dec".to_string();
+        }
+        if gstreamer::ElementFactory::find("d3d12h264dec").is_some() {
+            return "d3d12h264dec".to_string();
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        if gstreamer::ElementFactory::find("nvdec").is_some() {
+            return "nvdec".to_string();
+        }
+        if gstreamer::ElementFactory::find("vaapih264dec").is_some() {
+            return "vaapih264dec".to_string();
+        }
+    }
     if gstreamer::ElementFactory::find("nvdec").is_some() {
         return "nvdec".to_string();
     }
@@ -124,12 +148,6 @@ fn detect_hardware_decoder() -> String {
     }
     if gstreamer::ElementFactory::find("d3d11h264dec").is_some() {
         return "d3d11h264dec".to_string();
-    }
-    if gstreamer::ElementFactory::find("d3d12h264dec").is_some() {
-        return "d3d12h264dec".to_string();
-    }
-    if gstreamer::ElementFactory::find("vaapih264dec").is_some() {
-        return "vaapih264dec".to_string();
     }
     "avdec_h264".to_string()
 }

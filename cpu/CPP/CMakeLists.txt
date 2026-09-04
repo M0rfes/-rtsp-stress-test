@@ -37,6 +37,8 @@ add_executable(rtsp-stress-test-cpp-cpu
     src/main.cpp
     src/config.h
     src/config.cpp
+    src/platform.h
+    src/platform.cpp
     src/stream_worker.h
     src/stream_worker.cpp
     src/video_widget.h

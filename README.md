@@ -4,7 +4,7 @@
 
 We are building a benchmarking suite to evaluate 5 UI frameworks (**Electron**, **Tauri**, **Qt6**, **Iced**, **Avalonia**) displaying a **30-camera RTSP video grid (1440p / 2560×1440 @ 25 FPS)**.
 
-The benchmark evaluates both architectures under headless Linux (`Xvfb`) on AWS EC2, with the final target deployment being a physical Windows machine:
+The benchmark evaluates both architectures under headless Linux (`Xvfb`) on AWS EC2, with the final target deployment being a physical Windows machine. Agents develop on macOS: follow **`BENCHMARK_FINDINGS.md` §9.0** (OS-native decode, `RLIMIT_NOFILE=10240`, 20ms stream stagger, never ship Linux VA-API/EGL flags on Darwin).
 
 1. **GPU-Accelerated (Zero-Copy):** Video is decoded on the GPU ASIC (e.g. NVDEC/VA-API) and shared directly with the UI rendering pipeline (via OpenGL, Direct3D, or WebGPU textures) without touching CPU RAM.
 2. **CPU-Only (Software Decoding):** Forcing the CPU to decode and translate planar video memory into UI-compatible pixels to test software fallback resilience under extreme load.

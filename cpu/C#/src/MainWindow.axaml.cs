@@ -88,7 +88,7 @@ public partial class MainWindow : Window
             for (var i = 0; i < _workers.Count; i++)
             {
                 _workers[i].Start();
-                await Task.Delay(25);
+                await Task.Delay(Platform.StreamStaggerMs);
             }
         });
 

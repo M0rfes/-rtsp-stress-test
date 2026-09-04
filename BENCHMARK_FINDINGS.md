@@ -176,7 +176,7 @@ Because the target production environment is a physical Windows desktop:
 | Framework | Architecture Mode | Directory | Status | Notes |
 | :--- | :--- | :--- | :--- | :--- |
 | **Electron** | CPU (Software) | `cpu/Electron` | **Completed & Tested** | WebCodecs `VideoDecoder` fallback, Canvas 2D blit, local WebSocket IPC |
-| **Electron** | GPU (Zero-Copy) | `gpu/Electron` | **Completed & Tested** | WebCodecs `prefer-hardware`, `OffscreenCanvas` `BitmapRenderer` zero-copy, VA-API & EGL flags |
+| **Electron** | GPU (Zero-Copy) | `gpu/Electron` | **Completed & Tested** | WebCodecs `prefer-hardware`, `OffscreenCanvas` `BitmapRenderer`; Linux VA-API/EGL; **macOS VideoToolbox + Metal ANGLE** (do not pass `--use-gl=egl` on Darwin) |
 | **C++ (Qt6)** | CPU (Software) | `cpu/CPP` | **Completed & Tested** | `libavcodec` software decode, `libswscale` to RGB32, wait-free triple buffer, `QPainter` |
 | **C++ (Qt6)** | GPU (Zero-Copy) | `gpu/CPP` | **Completed & Tested** | `libavcodec` CUDA/VAAPI/VideoToolbox hwaccel, zero CPU readback, `QOpenGLWidget`, BT.709 GPU shaders |
 | **Rust (Tauri)**| CPU (Software) | `cpu/Rust-Tauri` | **Completed & Tested** | `gstreamer-rs` demux, WebSocket IPC, React WebCodecs Canvas |
@@ -184,7 +184,7 @@ Because the target production environment is a physical Windows desktop:
 | **Rust (Iced)** | CPU (Software) | `cpu/Rust-Iced` | **Completed & Tested** | `gstreamer-rs` CPU decode, `tiny-skia` backend, SIMD YUV->RGBA, `ArcSwap` & `Arc<RwLock<[u8]>>` lock-free handoff |
 | **Rust (Iced)** | GPU (Zero-Copy) | `gpu/Rust-Iced` | **Completed & Tested** | `gstreamer-rs` nvdec, `iced_wgpu` backend, WGPU texture mapping, WGSL shader quad blit |
 | **C# (.NET)** | CPU (Software) | `cpu/C#` | **Completed & Tested** | Avalonia UI, `FFmpeg.AutoGen`, `WriteableBitmap.Lock()` memory copy |
-| **C# (.NET)** | GPU (Zero-Copy) | `gpu/C#` | Pending | Avalonia UI, `OpenGlControlBase`, raw texture ID injection |
+| **C# (.NET)** | GPU (Zero-Copy) | `gpu/C#` | **Completed** | Avalonia UI, `OpenGlControlBase`, OS-native VideoToolbox / CUDA / D3D11VA, CUDA-GL interop |
 
 ---
 
@@ -263,11 +263,67 @@ In combination with `app.commandLine.appendSwitch('disable-accelerated-video-dec
 
 ## 9. Framework-Specific Implementation Guide & Gotchas (For Remaining Agents)
 
+### 9.0 Universal Platform Optimization Contract (2026-09-04, Electron Mac session)
+
+Every framework (`cpu/*` and `gpu/*`) must keep **OS-native** decode/compositor paths. Do not ship Linux-only flags in the default headed launch used on macOS.
+
+#### Session evidence (Electron GPU, headed macOS, 1440p @ 25 FPS)
+
+* The **RTSP publisher did not drop**. MediaMTX `testsrc2` stayed at 25 FPS / `speed=1x` for the whole run.
+* All 30 readers stayed connected (`active_streams: 30`). Demuxers did not reconnect after the initial mid-GOP join.
+* The **UI could not keep up**. Painted FPS collapsed between window 1 (`799` ticks at 25–30 FPS) and window 2 (`0` at 25–30, `1364` at 10–19).
+* Chromium logged `VideoDecoder error` → `VideoToolbox session saturated` on excess streams.
+* Only *after* the renderer stalled did MediaMTX log `reader is too slow, discarding N frames`. That is **client backpressure**, not a dead camera feed.
+* Headed scaling on Apple Silicon VideoToolbox (~8–16 simultaneous 1440p HW sessions): **10 streams OK**, **20 usable**, **25–30 freeze the compositor**. Production AWS `g6`/`g4dn` NVDEC does not have this session cap.
+
+#### Mandatory per-process hooks (all frameworks)
+
+| Hook | Value | Why |
+| :--- | :--- | :--- |
+| `RLIMIT_NOFILE` | `10240` at process start **and** `ulimit -n 10240` in launch scripts | macOS default is 256; 30 RTSP sockets + pipes → `EMFILE` |
+| Stream start stagger | **20ms** per stream | Avoid MediaMTX TCP handshake stampede |
+| Headed vs headless | Darwin/Windows headed unless `BENCHMARK_HEADLESS=1`. Linux headless when no `DISPLAY` | `DISPLAY` is unset on macOS; do not treat Darwin as Xvfb |
+| Telemetry path | `/var/log/benchmark/...` with fallback `./logs/` | macOS and non-root Linux cannot write `/var/log` |
+
+#### OS decode / compositor matrix
+
+| OS | GPU decode | GPU compositor | CPU decode (software-only) | Never on this OS |
+| :--- | :--- | :--- | :--- | :--- |
+| **macOS** | VideoToolbox (`vtdec` / `AV_HWDEVICE_TYPE_VIDEOTOOLBOX` / Chromium `AcceleratedVideoDecodeMac`) | Metal / IOSurface / ANGLE Metal | Keep `prefer-software` / `ff_h264_decoder` / `avdec_h264`. Compositor may still use Metal | `--use-gl=egl`, `VaapiVideoDecoder`, `VaapiOnNvidiaGPUs`, NVDEC |
+| **Linux** | NVDEC / VA-API (`nvdec`, `VaapiVideoDecoder`, `AV_HWDEVICE_TYPE_CUDA`/`VAAPI`) | EGL / GLES / Vulkan | No VA-API flags; optional `LIBGL_ALWAYS_SOFTWARE` | VideoToolbox |
+| **Windows** | D3D11 (`d3d11h264dec`, `D3D11VA`) | ANGLE D3D11 / DXGI | Software decode, ANGLE compositor OK | VA-API, VideoToolbox |
+
+#### GPU presentation on macOS (UI freeze mitigation)
+
+* Present at **tile CSS size × devicePixelRatio**, not full 2560×1440 RGBA per tile. 30 full-res swapchains saturate unified memory and CoreAnimation.
+* On VideoToolbox `VideoDecoder` errors, recreate with `hardwareAcceleration: 'no-preference'` (Chromium will demote excess sessions to FFmpeg software). WebKit/Tauri does **not** bundle that fallback — keep stream counts ≤16 for headed WKWebView tests, or handle decoder `closed` and rebuild.
+* Drop **delta** frames when `decodeQueueSize > 2`. Do **not** drop already-decoded frames with `pendingFrames > 2` (that caps painted FPS to ~6).
+* Default npm/start scripts must **not** hardcode Linux Chromium flags. Apply flags in-process with `process.platform` / `#[cfg(target_os)]` / `Q_OS_*`.
+
+#### Launch script rule
+
+* Headless Linux scripts may still pass `--use-gl=egl` and VA-API flags **inside `xvfb-run`**.
+* Headed `npm start` / desktop binaries must select flags at runtime.
+
+#### Implementation map (this session)
+
+| Tree | Module | Notes |
+| :--- | :--- | :--- |
+| `cpu/Electron`, `gpu/Electron` | `src/main/platform.ts` + `scripts/launch-electron.js` | Chromium flags by `process.platform`; Mac GPU tile present + VideoToolbox overflow → `no-preference` |
+| `cpu/CPP`, `gpu/CPP` | `src/platform.h` / `src/platform.cpp` | `kNofileTarget=10240`, `kStreamStaggerMs=20`. GPU: `QSurfaceFormat` 4.1 core **before** `QApplication`. `hw_accel.cpp` auto is OS-first |
+| `cpu/C#` | `src/Platform.cs` | `NofileTarget`, `StreamStaggerMs`. Avalonia `UsePlatformDetect()` (Metal on macOS) |
+| `gpu/C#` | `src/Platform.cs` + `src/HwAccelManager.cs` | OS-first `AV_HWDEVICE_TYPE_*`; `OpenGlControlBase` + CUDA-GL / VideoToolbox. `NofileTarget`, `StreamStaggerMs=20` |
+| `cpu/Rust-Tauri`, `gpu/Rust-Tauri` | `src-tauri/src/platform.rs` | `apply_*_webview_env()`; Linux WebKitGTK VA-API is `#[cfg(target_os = "linux")]` only. Mac GPU: tile-sized `createImageBitmap` |
+| `cpu/Rust-Iced`, `gpu/Rust-Iced` | `src/platform.rs` | GPU `config.rs` `detect_hardware_decoder()` is OS-first (`vtdec` / `nvdec` / `d3d11h264dec`). wgpu features: `gles, vulkan, metal, dx12` |
+
+---
+
 ### 9.1 Cross-Platform Development Guide: macOS Dev -> AWS EC2 Ubuntu Production
-* **The Reality:** Agents develop on macOS (Apple Silicon / Intel), but benchmarks execute on headless AWS EC2 Linux Ubuntu (`c7i.8xlarge`, `g6.8xlarge`) via `Xvfb`.
+* **The Reality:** Agents develop on macOS (Apple Silicon / Intel), but official 6-hour benchmarks execute on headless AWS EC2 Linux Ubuntu (`c7i.8xlarge`, `g6.8xlarge`) via `Xvfb`.
 * **Platform Conditional Handling:**
-  - Never hardcode Linux-only binary paths or flags without checking `process.platform` / OS detection.
-  - On macOS, Nvidia VA-API does not exist (macOS uses VideoToolbox / Metal). Always ensure macOS builds gracefully initialize with software fallback or platform-native decoders while ensuring launch scripts pass the required Linux flags (`xvfb-run`, `--use-gl=egl`, `--enable-features=VaapiVideoDecoder`).
+  - Never hardcode Linux-only binary paths or flags without checking `process.platform` / `#[cfg(target_os)]` / `Q_OS_*` / `OperatingSystem.IsMacOS()`.
+  - On macOS, Nvidia VA-API does not exist (macOS uses VideoToolbox / Metal). Headed macOS must initialize VideoToolbox or software fallback. Linux launch scripts (`xvfb-run`, `--use-gl=egl`, `--enable-features=VaapiVideoDecoder`) stay Linux-only.
+  - See **§9.0** for the freeze-vs-drop diagnosis and the NOFILE / stagger / tile-present contract.
 * **Telemetry Path Fallback (Mandatory across all frameworks):**
   - Attempt `/var/log/benchmark/fps_metrics.log` and `/var/log/benchmark/hardware_metrics.csv`.
   - On macOS and non-root Linux, automatically fall back to `./logs/fps_metrics.log` and `./logs/hardware_metrics.csv`.
@@ -280,6 +336,8 @@ In combination with `app.commandLine.appendSwitch('disable-accelerated-video-dec
 ---
 
 ### 9.2 C++ (Qt6) Implementation Guide (`cpu/CPP` and `gpu/CPP`)
+
+* **§9.0 contract:** `src/platform.h` / `src/platform.cpp`. Raise `RLIMIT_NOFILE` and apply Qt hints **before** `QApplication`. GPU macOS must set `QSurfaceFormat` 4.1 Core Profile before constructing the app. `HwAccelManager::create("auto")` is OS-first (VideoToolbox / CUDA+VA-API / D3D11VA). Stream stagger is `kStreamStaggerMs` (20ms).
 
 #### 1. Real-World Architecture & Performance Insights (CPU Mode)
 * **Pure CPU Software Decoding (`libavcodec`):**
@@ -426,6 +484,8 @@ tail -f /var/log/benchmark/hardware_metrics.csv
 
 ### 9.3 Rust (Tauri) Implementation Guide (`cpu/Rust-Tauri` and `gpu/Rust-Tauri`)
 
+* **§9.0 contract:** `src-tauri/src/platform.rs`. Call `raise_file_descriptor_limit()` and `apply_cpu_webview_env()` / `apply_gpu_webview_env()` before GStreamer init. Never set `LIBVA_*` or `WEBKIT_FORCE_COMPOSITING_MODE` on Darwin. GPU `VideoPlayer.tsx`: present at tile CSS × DPR on macOS; WebKit has **no** Chromium software demotion — headed Mac tests stay ≤16 streams.
+
 #### 1. Real-World Architecture & Performance Insights
 * **Native C AVCC Framing vs JavaScript Event Loop Saturation:**
   - **The Hazard:** At 30 streams × 25 FPS = 750 frames/sec (each ~150 KB), parsing Annex B start codes (`00 00 00 01`) inside a single-threaded JavaScript loop requires scanning **112,500,000 bytes per second**. This allocates 750 `Uint8Array`s per second (~100 MB/s allocation churn), triggering continuous Garbage Collection pauses and pinning the UI thread at 100% CPU.
@@ -547,6 +607,7 @@ tail -f /var/log/benchmark/hardware_metrics.csv
 
 
 ### 9.4 Rust (Iced) Implementation Guide (`cpu/Rust-Iced` and `gpu/Rust-Iced`)
+* **§9.0 contract:** `src/platform.rs`. GPU `detect_hardware_decoder()` in `config.rs` is OS-first (`vtdec` on macOS, `nvdec`/`vaapih264dec` on Linux, `d3d11h264dec` on Windows). wgpu backends include Metal and Dx12 — do not ship GLES-only.
 * **CPU Mode (`cpu/Rust-Iced`):**
   - **The Reality of "Pure CPU" vs. WebCodecs/Electron:**
     - In Electron and Chromium-based frameworks, running in "software mode" (`disable-accelerated-video-decode`, `prefer-software`) **only** performs the H.264 bitstream decode on the CPU. The planar YUV frames are uploaded directly to GPU textures, where **YUV-to-RGB color conversion, bilinear texture downsampling (1440p to grid tile size), and compositor blitting are all executed by GPU shaders via Metal / OpenGL**.
@@ -574,7 +635,7 @@ tail -f /var/log/benchmark/hardware_metrics.csv
   - **MediaMTX Buffer Tuning for 30 Concurrent Streams:**
     - MediaMTX's default `readBufferCount: 512` is insufficient when 30 simultaneous TCP streams connect to 1440p feeds, causing MediaMTX to log `reader is too slow, discarding frames`.
     - Configure `mediamtx.yml` with `readBufferCount: 8192` and `writeQueueSize: 8192`.
-    - Stagger decoder pipeline startup by 30ms per stream in `start_all()` to eliminate connection-stampede packet drops.
+    - Stagger decoder pipeline startup by 20ms per stream (`STREAM_STAGGER_MS`) in `start_all()` to eliminate connection-stampede packet drops.
   - **GStreamer Pipeline Robustness:**
     - Configure `rtspsrc location="{}" protocols=tcp latency=50 drop-on-latency=false ! rtph264depay ! h264parse ! avdec_h264 max-threads=1 output-corrupt=false ! videoscale ! videoconvert ! video/x-raw,format=RGBA,width=640,height=360 ! appsink name=sink sync=false max-buffers=2 drop=true`.
     - Use `avdec_h264` with `output-corrupt=false`, allowing libavcodec to handle macroblocks gracefully without dropping pipeline state.
@@ -660,6 +721,8 @@ nvidia-smi --query-gpu=utilization.decoder,memory.used --format=csv
 
 ### 9.5 C# (.NET / Avalonia UI) Implementation Guide (`cpu/C#` and `gpu/C#`)
 
+* **§9.0 contract:** `cpu/C#/src/Platform.cs` and `gpu/C#/src/Platform.cs` (`NofileTarget`, `StreamStaggerMs`). GPU `HwAccelManager` is OS-first (VideoToolbox / CUDA+VA-API / D3D11VA). Do not hardcode Linux CUDA/VA-API on macOS.
+
 #### 1. Real-World Architecture & Performance Insights (CPU Mode)
 * **Pure CPU Software Decoding (`FFmpeg.AutoGen` / `libavcodec`):**
   - Uses `ffmpeg.avcodec_find_decoder(AVCodecID.AV_CODEC_ID_H264)` to bind directly to libavcodec's optimized software decoder (`ff_h264_decoder`), strictly bypassing GPU accelerators.
@@ -743,7 +806,6 @@ sudo ./scripts/setup_autostart.sh
 ---
 
 * **GPU Zero-Copy Mode (`gpu/C#`):**
-  - Configure `FFmpeg.AutoGen` with `AV_HWDEVICE_TYPE_CUDA` or `AV_HWDEVICE_TYPE_VAAPI`.
-  - Subclass Avalonia's `OpenGlControlBase`.
-  - **Context Synchronization Rule:** Never attempt to call OpenGL or update textures from background FFmpeg decoding threads. Only update textures during `OnOpenGlRender(GlInterface gl, int fb)` when Avalonia's OpenGL context is active and bound.
-  - Map CUDA decoded frames to OpenGL texture IDs using CUDA-GL Interop (`cudaGraphicsGLRegisterImage`).
+  - `src/Platform.cs` / `src/HwAccelManager.cs`: NOFILE 10240, 20ms stagger, OS-native `AV_HWDEVICE_TYPE_CUDA`/`VAAPI` (Linux), `VIDEOTOOLBOX` (macOS), `D3D11VA` (Windows).
+  - `src/VideoGlControl.cs` subclasses `OpenGlControlBase`. Textures update only in `OnOpenGlRender` while Avalonia's GL context is bound.
+  - CUDA frames map to GL texture IDs via `cuGraphicsGLRegisterImage` (`src/CudaGlInterop.cs`). VideoToolbox uses `CVPixelBuffer` plane lock (`src/CoreVideoInterop.cs`).

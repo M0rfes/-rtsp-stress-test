@@ -1,6 +1,8 @@
 # 30-Camera RTSP Video Grid Benchmark (Rust Iced CPU Software Decode)
 
-This implementation fulfills the **CPU-Only (Software Decoding)** benchmark specification for Rust Iced from the root [README.md](../../README.md), [BENCHMARK_FINDINGS.md](../../BENCHMARK_FINDINGS.md), and [cpu/Rust-Iced/prompt.md](prompt.md).
+This implementation fulfills the **CPU-Only (Software Decoding)** benchmark specification for Rust Iced from the root [README.md](../../README.md), [BENCHMARK_FINDINGS.md](../../BENCHMARK_FINDINGS.md) §9.0, and [cpu/Rust-Iced/prompt.md](prompt.md).
+
+`src/platform.rs`: `NOFILE_TARGET=10240`, `STREAM_STAGGER_MS=20`.
 
 ## Architecture Overview
 

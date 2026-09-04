@@ -1,6 +1,8 @@
 # 30-Camera RTSP Video Grid Benchmark (Rust Tauri GPU Zero-Copy Hardware Decode)
 
-This implementation fulfills the **GPU-Accelerated (Zero-Copy)** benchmark specification for Rust Tauri from the root `README.md`, `BENCHMARK_FINDINGS.md`, and `gpu/Rust-Tauri/prompt.md`.
+This implementation fulfills the **GPU-Accelerated (Zero-Copy)** benchmark specification for Rust Tauri from the root `README.md`, `BENCHMARK_FINDINGS.md` §9.0, and `gpu/Rust-Tauri/prompt.md`.
+
+`src-tauri/src/platform.rs` applies OS WebView env. Linux VA-API/WebKitGTK flags are `#[cfg(target_os = "linux")]` only. macOS WKWebView uses VideoToolbox + Metal — headed tests stay ≤16 streams. `VideoPlayer.tsx` presents at tile CSS × DPR on Darwin.
 
 ## Architecture Overview
 
@@ -102,7 +104,8 @@ This implementation fulfills the **GPU-Accelerated (Zero-Copy)** benchmark speci
   - Player overlays update via direct DOM element mutation.
   - Master 1-second interval collects painted counts and synchronizes with the Rust backend telemetry manager.
 
-### 4. WebKitGTK / Chromium Launch Flags & VA-API Configuration (`src-tauri/src/lib.rs`)
+### 4. WebKitGTK / Chromium Launch Flags (`src-tauri/src/platform.rs` + `src-tauri/src/lib.rs`)
+- Flags are OS-selected at runtime. Do not put VA-API / `--use-gl=egl` in the headed macOS launch path. See [BENCHMARK_FINDINGS.md §9.0](../../BENCHMARK_FINDINGS.md).
 - On Linux, WebKitGTK and Chromium WebView initialization is configured with hardware acceleration flags:
   - Environment variables set before webview startup:
     - `WEBKIT_FORCE_COMPOSITING_MODE=1`

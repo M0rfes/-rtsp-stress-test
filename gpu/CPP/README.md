@@ -1,6 +1,8 @@
 # 30-Camera RTSP Video Grid Benchmark (C++ Qt6 GPU Zero-Copy Hardware Decode)
 
-This implementation fulfills the **GPU-Accelerated (Zero-Copy)** benchmark specification for C++ Qt6 from the root [README.md](../../README.md), [BENCHMARK_FINDINGS.md](../../BENCHMARK_FINDINGS.md), and [gpu/CPP/prompt.md](prompt.md).
+This implementation fulfills the **GPU-Accelerated (Zero-Copy)** benchmark specification for C++ Qt6 from the root [README.md](../../README.md), [BENCHMARK_FINDINGS.md](../../BENCHMARK_FINDINGS.md) §9.0, and [gpu/CPP/prompt.md](prompt.md).
+
+`src/platform.cpp` raises `RLIMIT_NOFILE` and, on macOS, sets `QSurfaceFormat` 4.1 Core **before** `QApplication`. `hw_accel.cpp` auto-selects VideoToolbox / CUDA+VA-API / D3D11VA by OS.
 
 ---
 
@@ -18,7 +20,7 @@ This implementation fulfills the **GPU-Accelerated (Zero-Copy)** benchmark speci
 │                                                                             │
 │  30 × Dedicated RTSP Hardware Decoders (`libavformat` + `libavcodec`):     │
 │   avformat_open_input -> av_read_frame -> avcodec_receive_frame             │
-│   ├── Hardware decode via `AV_HWDEVICE_TYPE_CUDA` or `AV_HWDEVICE_TYPE_VAAPI`│
+│   ├── Hardware decode via CUDA, VA-API, VideoToolbox, or D3D11VA (OS auto)   │
 │   ├── Decodes compressed H.264 bitstream directly into GPU VRAM              │
 │   ├── In-band SPS/PPS Access Unit framing via `h264_mp4toannexb`            │
 │   └── Sockets configured with `rtsp_transport=tcp`, 500ms max delay, 4MB buf│
@@ -62,6 +64,7 @@ This implementation fulfills the **GPU-Accelerated (Zero-Copy)** benchmark speci
   - **Linux (Target AWS EC2 with NVIDIA GPU):** NVIDIA CUDA (`AV_HWDEVICE_TYPE_CUDA` / NVDEC ASIC).
   - **Linux (Intel / AMD):** VA-API (`AV_HWDEVICE_TYPE_VAAPI`).
   - **macOS (Development):** Apple VideoToolbox (`AV_HWDEVICE_TYPE_VIDEOTOOLBOX`).
+  - **Windows:** D3D11VA (`AV_HWDEVICE_TYPE_D3D11VA`).
 - **Zero-Copy VRAM Rule:** Decoded video frames reside exclusively in GPU VRAM surfaces (`AV_PIX_FMT_CUDA`, `AV_PIX_FMT_VAAPI`, `AV_PIX_FMT_VIDEOTOOLBOX`). The application **never** copies raw YUV frame pixels back to system host RAM via `av_hwframe_transfer_data()`.
 - **H.264 Access Unit Framing:** In-band SPS/PPS parameter set reconstruction and Annex B start-code synchronization via `h264_mp4toannexb` bitstream filtering ensure that hardware decoders never stall upon mid-stream joins.
 - **Dedicated Threading:** Demux and decode loops execute on dedicated background `QThread`s with `thread_count = 1` per worker, avoiding CPU scheduler contention.

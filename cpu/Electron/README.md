@@ -2,6 +2,8 @@
 
 This implementation fulfills the **CPU-Only (Software Decoding)** benchmark specification for Electron from the project `README.md` and `cpu/Electron/prompt.md`.
 
+Platform hooks live in `src/main/platform.ts` and `scripts/launch-electron.js`. See [BENCHMARK_FINDINGS.md §9.0](../../BENCHMARK_FINDINGS.md). `npm start` does not hardcode Linux VA-API flags. On macOS the compositor may still use Metal while decode stays `disable-accelerated-video-decode` / `prefer-software`. Tiles blit at CSS size × DPR.
+
 ## Architecture Overview
 
 1. **Node.js Backend (Main Process):**

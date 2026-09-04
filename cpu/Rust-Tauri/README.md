@@ -1,6 +1,8 @@
 # 30-Camera RTSP Video Grid Benchmark (Rust Tauri CPU Software Decode)
 
-This implementation fulfills the **CPU-Only (Software Decoding)** benchmark specification for Rust Tauri from the root `README.md`, `BENCHMARK_FINDINGS.md`, and `cpu/Rust-Tauri/prompt.md`.
+This implementation fulfills the **CPU-Only (Software Decoding)** benchmark specification for Rust Tauri from the root `README.md`, `BENCHMARK_FINDINGS.md` §9.0, and `cpu/Rust-Tauri/prompt.md`.
+
+`src-tauri/src/platform.rs` raises `RLIMIT_NOFILE` and applies CPU WebView env (Linux software GL only). `VideoPlayer.tsx` uses `prefer-software` and tile-sized blit on macOS.
 
 ## Architecture Overview
 

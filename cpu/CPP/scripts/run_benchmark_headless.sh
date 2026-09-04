@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # run_benchmark_headless.sh - 6-Hour Benchmark Runner for Headless Linux (AWS Ubuntu)
 set -e
+ulimit -n 10240 2>/dev/null || true
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$DIR"

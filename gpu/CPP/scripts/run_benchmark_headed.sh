@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # run_benchmark_headed.sh - Run C++ Qt6 GPU Benchmark with visible desktop window
 set -e
+ulimit -n 10240 2>/dev/null || true
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$DIR"

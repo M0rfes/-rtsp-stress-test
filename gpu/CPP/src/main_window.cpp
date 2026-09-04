@@ -1,4 +1,5 @@
 #include "main_window.h"
+#include "platform.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -143,8 +144,7 @@ void MainWindow::startWorkers() {
     std::cout << "[MainWindow] Starting " << m_workers.size() << " background RTSP GPU decoder threads..." << std::endl;
     for (size_t i = 0; i < m_workers.size(); ++i) {
         m_workers[i]->start();
-        // Stagger thread startup by 20ms to eliminate RTSP socket stampede
-        QThread::msleep(20);
+        QThread::msleep(kStreamStaggerMs);
     }
     std::cout << "[MainWindow] All GPU decoder threads started successfully." << std::endl;
 }

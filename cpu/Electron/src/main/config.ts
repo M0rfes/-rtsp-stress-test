@@ -38,8 +38,15 @@ export const config: BenchmarkConfig = {
   videoWidth: 2560,
   videoHeight: 1440,
   targetFps: 25,
-  isHeadless: process.env.BENCHMARK_HEADLESS === '1' || process.env.DISPLAY === undefined || process.platform === 'linux',
+  isHeadless: resolveIsHeadless(),
 };
+
+function resolveIsHeadless(): boolean {
+  if (process.env.BENCHMARK_HEADLESS === '1') return true;
+  if (process.env.BENCHMARK_HEADLESS === '0') return false;
+  if (process.platform === 'darwin' || process.platform === 'win32') return false;
+  return !process.env.DISPLAY;
+}
 
 export function getRtspUrlForStream(index: number): string {
   if (config.rtspUrlPattern) {

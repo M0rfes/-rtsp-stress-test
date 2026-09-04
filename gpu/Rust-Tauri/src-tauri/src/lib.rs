@@ -1,5 +1,6 @@
 pub mod config;
 pub mod demuxer;
+pub mod platform;
 pub mod telemetry;
 pub mod ws_server;
 
@@ -11,29 +12,9 @@ use telemetry::TelemetryManager;
 use ws_server::VideoWebSocketServer;
 
 pub fn run() {
-    // 1. Initialize logging
     env_logger::init();
-
-    // 2. Configure GPU hardware acceleration and VA-API environment flags
-    // Constraint: "Configure the WebKitGTK/Chromium WebView initialization in Tauri to accept VA-API hardware acceleration flags."
-    if cfg!(target_os = "linux") {
-        // Enforce WebKitGTK hardware acceleration and compositing
-        std::env::set_var("WEBKIT_FORCE_COMPOSITING_MODE", "1");
-        std::env::set_var("GST_VAAPI_ALL_DRIVERS", "1");
-        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "0");
-
-        // If Nvidia VA-API driver is present or Nvidia GPU is installed, set driver hints
-        if std::path::Path::new("/usr/lib/x86_64-linux-gnu/dri/nvidia_drv_video.so").exists()
-            || std::path::Path::new("/usr/lib64/dri/nvidia_drv_video.so").exists()
-        {
-            if std::env::var("LIBVA_DRIVER_NAME").is_err() {
-                std::env::set_var("LIBVA_DRIVER_NAME", "nvidia");
-            }
-            if std::env::var("__GLX_VENDOR_LIBRARY_NAME").is_err() {
-                std::env::set_var("__GLX_VENDOR_LIBRARY_NAME", "nvidia");
-            }
-        }
-    }
+    platform::raise_file_descriptor_limit();
+    platform::apply_gpu_webview_env();
 
     // 3. Initialize GStreamer and ensure RTSP server library linkage
     gstreamer::init().expect("Failed to initialize GStreamer");
@@ -45,6 +26,7 @@ pub fn run() {
     let pid = std::process::id();
 
     println!("=== RTSP 30-Stream Stress Test (Rust Tauri GPU Benchmark) ===");
+    println!("Platform:               {}", platform::name());
     println!("Process PID:            {}", pid);
     println!("Stream Count:           {}", stream_count);
     println!("RTSP Target URL:        {}", config.rtsp_url);

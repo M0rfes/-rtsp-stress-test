@@ -1,5 +1,6 @@
 mod config;
 mod decoder;
+mod platform;
 mod shader;
 mod telemetry;
 mod ui;
@@ -122,18 +123,8 @@ impl BenchmarkApp {
 
 fn main() -> iced::Result {
     env_logger::init();
-
-    // Raise file descriptor limit so 30 concurrent RTSP pipelines don't exhaust default macOS limit (256)
-    #[cfg(unix)]
-    unsafe {
-        let rlim = libc::rlimit {
-            rlim_cur: 10240,
-            rlim_max: 10240,
-        };
-        if libc::setrlimit(libc::RLIMIT_NOFILE, &rlim) != 0 {
-            eprintln!("[WARN] Could not raise RLIMIT_NOFILE to 10240");
-        }
-    }
+    platform::raise_file_descriptor_limit();
+    platform::log_gpu();
 
     // Initialize GStreamer
     if let Err(e) = gstreamer::init() {

@@ -3,11 +3,11 @@
 #include <iostream>
 #include "config.h"
 #include "main_window.h"
+#include "platform.h"
 
 #if defined(Q_OS_UNIX)
 #include <unistd.h>
 #include <sys/socket.h>
-#include <sys/resource.h>
 #include <QSocketNotifier>
 
 static int sigFd[2];
@@ -19,19 +19,8 @@ static void signalHandler(int /*sig*/) {
 #endif
 
 int main(int argc, char* argv[]) {
-#if defined(Q_OS_UNIX)
-    // Raise file descriptor limit to handle 30+ concurrent RTSP TCP sockets
-    struct rlimit rl;
-    if (getrlimit(RLIMIT_NOFILE, &rl) == 0) {
-        rl.rlim_cur = std::min<rlim_t>(10240, rl.rlim_max);
-        setrlimit(RLIMIT_NOFILE, &rl);
-    }
-#endif
-    // Enable software rasterization hint if running under headless/pure software environments
-    if (qEnvironmentVariableIsSet("LIBGL_ALWAYS_SOFTWARE") ||
-        qEnvironmentVariableIsSet("QT_QUICK_BACKEND")) {
-        qputenv("QT_QPA_PLATFORM", "xcb");
-    }
+    raiseFileDescriptorLimit();
+    applyCpuPlatformHints();
 
     QApplication app(argc, argv);
     app.setApplicationName("rtsp-stress-test-cpp-cpu");
@@ -39,9 +28,11 @@ int main(int argc, char* argv[]) {
 
     AppConfig config = AppConfig::loadFromArgsAndEnv(argc, argv);
 
+    logPlatformPath(false);
     std::cout << "=======================================================\n"
               << " 6-Hour RTSP Video Grid Benchmark (C++ Qt6 CPU Decode)\n"
               << "=======================================================\n"
+              << " Platform:          " << platformName() << "\n"
               << " Target RTSP URL:   " << config.rtspUrl << "\n"
               << " Active Streams:    " << config.streamCount << "\n"
               << " Telemetry Output:  " << config.logPath << "\n"

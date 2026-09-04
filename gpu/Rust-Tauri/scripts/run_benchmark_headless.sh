@@ -2,6 +2,7 @@
 # run_benchmark_headless.sh - 6-Hour Benchmark Runner for Headless Linux (AWS Ubuntu)
 # Handles GPU hardware-accelerated zero-copy video grid testing under Xvfb
 set -e
+ulimit -n 10240 2>/dev/null || true
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$DIR"

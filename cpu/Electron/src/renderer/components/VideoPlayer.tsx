@@ -18,6 +18,12 @@ interface VideoPlayerProps {
   wsPort: number;
 }
 
+function isMacPlatform(): boolean {
+  const preloadPlatform = (window as unknown as { electronBenchmark?: { platform?: string } }).electronBenchmark?.platform;
+  if (preloadPlatform) return preloadPlatform === 'darwin';
+  return /Mac/i.test(navigator.userAgent);
+}
+
 export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ streamId, wsPort }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fpsBadgeRef = useRef<HTMLSpanElement | null>(null);
@@ -85,8 +91,12 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d', { alpha: false });
+    const isMac = isMacPlatform();
+    const ctx = canvas.getContext('2d', { alpha: false, desynchronized: isMac });
     if (!ctx) return;
+    if (isMac) {
+      ctx.imageSmoothingEnabled = false;
+    }
 
     let isDestroyed = false;
 
@@ -140,13 +150,22 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
           }
           isConnectedRef.current = true;
 
-          // Adjust canvas size to match frame dimensions
-          if (canvas.width !== videoFrame.displayWidth || canvas.height !== videoFrame.displayHeight) {
-            canvas.width = videoFrame.displayWidth;
-            canvas.height = videoFrame.displayHeight;
+          const dpr = window.devicePixelRatio || 1;
+          const targetW = isMac
+            ? Math.max(1, Math.round((canvas.clientWidth || videoFrame.displayWidth) * dpr))
+            : videoFrame.displayWidth;
+          const targetH = isMac
+            ? Math.max(1, Math.round((canvas.clientHeight || videoFrame.displayHeight) * dpr))
+            : videoFrame.displayHeight;
+
+          if (canvas.width !== targetW || canvas.height !== targetH) {
+            canvas.width = targetW;
+            canvas.height = targetH;
+            if (isMac) {
+              ctx.imageSmoothingEnabled = false;
+            }
           }
 
-          // Render VideoFrame to Canvas 2D
           ctx.drawImage(videoFrame, 0, 0, canvas.width, canvas.height);
 
           // Crucial: immediately close frame to prevent memory accumulation

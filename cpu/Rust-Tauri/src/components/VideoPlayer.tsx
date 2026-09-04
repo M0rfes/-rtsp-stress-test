@@ -18,6 +18,10 @@ interface VideoPlayerProps {
   wsPort: number;
 }
 
+function isMacPlatform(): boolean {
+  return /Mac/i.test(navigator.userAgent);
+}
+
 export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ streamId, wsPort }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fpsBadgeRef = useRef<HTMLSpanElement | null>(null);
@@ -79,13 +83,17 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
     let bitmapCtx: ImageBitmapRenderingContext | null = null;
     let ctx2d: CanvasRenderingContext2D | null = null;
 
+    const isMac = isMacPlatform();
     try {
       bitmapCtx = canvas.getContext('bitmaprenderer');
     } catch {
       // Fallback to 2D
     }
     if (!bitmapCtx) {
-      ctx2d = canvas.getContext('2d', { alpha: false });
+      ctx2d = canvas.getContext('2d', { alpha: false, desynchronized: isMac });
+      if (ctx2d && isMac) {
+        ctx2d.imageSmoothingEnabled = false;
+      }
     }
 
     const createDecoder = () => {
@@ -117,7 +125,17 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
             }
 
             // Convert hardware VideoFrame to ImageBitmap to guarantee display on WebKit
-            createImageBitmap(videoFrame)
+            const dpr = window.devicePixelRatio || 1;
+            const targetW = isMac
+              ? Math.max(1, Math.round((canvas.clientWidth || videoFrame.displayWidth) * dpr))
+              : videoFrame.displayWidth;
+            const targetH = isMac
+              ? Math.max(1, Math.round((canvas.clientHeight || videoFrame.displayHeight) * dpr))
+              : videoFrame.displayHeight;
+            const bitmapPromise = isMac
+              ? createImageBitmap(videoFrame, { resizeWidth: targetW, resizeHeight: targetH, resizeQuality: 'low' })
+              : createImageBitmap(videoFrame);
+            bitmapPromise
               .then((bitmap) => {
                 videoFrame.close();
                 if (isDestroyed) {
@@ -204,6 +222,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
             codec: 'avc1.42c032',
             description: desc,
             optimizeForLatency: true,
+            hardwareAcceleration: 'prefer-software',
           });
         } catch (err: any) {
           console.error(`[Stream ${streamId}] Decoder configure failed:`, err?.message || err);

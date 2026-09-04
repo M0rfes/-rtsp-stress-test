@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 iced = { version = "0.14", default-features = false, features = ["wgpu", "advanced", "image", "tokio", "crisp", "x11", "wayland"] }
 iced_wgpu = "0.14"
-wgpu = { version = "27", features = ["gles", "vulkan"] }
+wgpu = { version = "27", features = ["gles", "vulkan", "metal", "dx12"] }
 wgpu-hal = "27"
 glow = "0.16"
 gstreamer = "0.25"

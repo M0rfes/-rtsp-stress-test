@@ -18,6 +18,10 @@ interface VideoPlayerProps {
   wsPort: number;
 }
 
+function isMacPlatform(): boolean {
+  return /Mac/i.test(navigator.userAgent);
+}
+
 export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ streamId, wsPort }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fpsBadgeRef = useRef<HTMLSpanElement | null>(null);
@@ -37,6 +41,8 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
   const decoderRef = useRef<VideoDecoder | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const hwAccelRef = useRef<HardwareAcceleration>('prefer-hardware');
+  const presentSizeRef = useRef({ width: 0, height: 0 });
+  const isMac = isMacPlatform();
 
   // BitmapRenderer context ref for GPU Zero-Copy
   const bitmapCtxRef = useRef<ImageBitmapRenderingContext | null>(null);
@@ -81,6 +87,20 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
     if (!canvas) return;
 
     let isDestroyed = false;
+    const updatePresentSize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      presentSizeRef.current = {
+        width: Math.max(1, Math.round(canvas.clientWidth * dpr)),
+        height: Math.max(1, Math.round(canvas.clientHeight * dpr)),
+      };
+    };
+    updatePresentSize();
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(updatePresentSize)
+      : null;
+    if (resizeObserver) {
+      resizeObserver.observe(canvas.parentElement || canvas);
+    }
 
     // Architecture Constraint:
     // "Render the frames using BitmapRenderer (transferFromImageBitmap) to prevent CPU-to-GPU memory copies."
@@ -121,9 +141,21 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
             }
             lastPtsRef.current = curPts;
 
-            // Zero-copy GPU-to-GPU handoff via ImageBitmap and BitmapRenderer context:
-            // The decoded hardware frame stays in VRAM and transfers directly into the compositor swapchain
-            createImageBitmap(videoFrame)
+            const targetW = isMac && presentSizeRef.current.width > 0
+              ? presentSizeRef.current.width
+              : videoFrame.displayWidth;
+            const targetH = isMac && presentSizeRef.current.height > 0
+              ? presentSizeRef.current.height
+              : videoFrame.displayHeight;
+            if (canvas.width !== targetW || canvas.height !== targetH) {
+              canvas.width = targetW;
+              canvas.height = targetH;
+            }
+
+            const bitmapPromise = isMac
+              ? createImageBitmap(videoFrame, { resizeWidth: targetW, resizeHeight: targetH, resizeQuality: 'low' })
+              : createImageBitmap(videoFrame);
+            bitmapPromise
               .then((bitmap) => {
                 videoFrame.close();
 
@@ -281,7 +313,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
       if (nalData.length === 0) return;
 
       // Backpressure guard: if decoder queue is severely backed up, drop delta frames
-      if (!isKey && decoderRef.current.decodeQueueSize > 5) {
+      if (!isKey && decoderRef.current.decodeQueueSize > 2) {
         return;
       }
 
@@ -307,6 +339,9 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
 
     return () => {
       isDestroyed = true;
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;

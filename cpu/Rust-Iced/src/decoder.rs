@@ -7,6 +7,7 @@ use iced::widget::image::Handle;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
+use crate::platform::STREAM_STAGGER_MS;
 
 #[derive(Clone)]
 #[allow(dead_code)]
@@ -120,8 +121,8 @@ impl StreamManager {
             std::thread::Builder::new()
                 .name(format!("rtsp-dec-{}", slot.stream_id))
                 .spawn(move || {
-                    // Stagger startup slightly (30ms per stream) to prevent thundering-herd on MediaMTX/RTSP server
-                    std::thread::sleep(Duration::from_millis((i * 30) as u64));
+                    // Stagger startup (20ms per stream) to prevent thundering-herd on MediaMTX/RTSP server
+                    std::thread::sleep(Duration::from_millis(i as u64 * STREAM_STAGGER_MS));
                     run_decoder_loop(slot_clone, is_running_clone);
                 })
                 .expect("Failed to spawn RTSP decoder worker thread");

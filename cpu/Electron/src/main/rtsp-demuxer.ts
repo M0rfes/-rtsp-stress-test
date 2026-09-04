@@ -1,6 +1,7 @@
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { getRtspUrlForStream } from './config';
+import { STREAM_STAGGER_MS } from './platform';
 
 export interface StreamFrameEvent {
   streamId: number;
@@ -237,6 +238,7 @@ export class RtspDemuxer extends EventEmitter {
 
 export class StreamPool {
   private demuxers: Map<number, RtspDemuxer> = new Map();
+  private startTimers: NodeJS.Timeout[] = [];
 
   constructor(count: number) {
     for (let i = 0; i < count; i++) {
@@ -246,14 +248,25 @@ export class StreamPool {
   }
 
   public startAll(): void {
-    console.log(`[StreamPool] Starting ${this.demuxers.size} RTSP demuxers...`);
+    console.log(`[StreamPool] Starting ${this.demuxers.size} RTSP demuxers (stagger ${STREAM_STAGGER_MS}ms)...`);
+    let index = 0;
     for (const demuxer of this.demuxers.values()) {
-      demuxer.start();
+      const delayMs = index * STREAM_STAGGER_MS;
+      index += 1;
+      if (delayMs === 0) {
+        demuxer.start();
+      } else {
+        this.startTimers.push(setTimeout(() => demuxer.start(), delayMs));
+      }
     }
   }
 
   public stopAll(): void {
     console.log(`[StreamPool] Stopping ${this.demuxers.size} RTSP demuxers...`);
+    for (const timer of this.startTimers) {
+      clearTimeout(timer);
+    }
+    this.startTimers = [];
     for (const demuxer of this.demuxers.values()) {
       demuxer.stop();
     }

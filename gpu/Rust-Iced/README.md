@@ -1,6 +1,8 @@
 # 30-Camera RTSP Video Grid Benchmark (Rust Iced GPU Zero-Copy Hardware Decode)
 
-This implementation fulfills the **GPU-Accelerated (Zero-Copy)** benchmark specification for Rust Iced from the root `README.md`, `BENCHMARK_FINDINGS.md`, and `gpu/Rust-Iced/prompt.md`.
+This implementation fulfills the **GPU-Accelerated (Zero-Copy)** benchmark specification for Rust Iced from the root `README.md`, `BENCHMARK_FINDINGS.md` §9.0, and `gpu/Rust-Iced/prompt.md`.
+
+`src/platform.rs` + OS-first `detect_hardware_decoder()` (`vtdec` / `nvdec` / `d3d11h264dec`). wgpu features: `gles, vulkan, metal, dx12`.
 
 ## Architecture Overview
 
@@ -15,9 +17,8 @@ This implementation fulfills the **GPU-Accelerated (Zero-Copy)** benchmark speci
 │ Rust Backend (gpu/Rust-Iced)                                                │
 │                                                                             │
 │  30 × GStreamer Hardware Decoders (`gstreamer-rs` + `gstreamer-gl`):        │
-│   rtspsrc ! rtph264depay ! h264parse ! nvdec ! glupload ! glcolorconvert    │
-│   ! video/x-raw(memory:GLMemory),format=RGBA ! appsink                      │
-│   ├── Hardware decode directly on NVIDIA NVDEC ASIC                         │
+│   rtspsrc ! rtph264depay ! h264parse ! {nvdec|vtdec|d3d11h264dec} ! …        │
+│   ├── OS-first HW decode (NVDEC / VideoToolbox / D3D11)                     │
 │   ├── GPU color conversion (YUV -> RGBA) in VRAM via OpenGL shaders         │
 │   └── Microsecond timestamp generation                                      │
 │                                                                             │

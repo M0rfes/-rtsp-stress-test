@@ -2,6 +2,7 @@
 # run_benchmark_headless.sh - 6-Hour Benchmark Runner for Headless Linux (AWS Ubuntu)
 # Handles both local test feeds and remote/VPC separate RTSP server instances
 set -e
+ulimit -n 10240 2>/dev/null || true
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$DIR"

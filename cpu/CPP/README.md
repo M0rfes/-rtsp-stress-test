@@ -1,6 +1,8 @@
 # 30-Camera RTSP Video Grid Benchmark (C++ Qt6 CPU Software Decode)
 
-This implementation fulfills the **CPU-Only (Software Decoding)** benchmark specification for C++ Qt6 from the root [README.md](../../README.md), [BENCHMARK_FINDINGS.md](../../BENCHMARK_FINDINGS.md), and [cpu/CPP/prompt.md](prompt.md).
+This implementation fulfills the **CPU-Only (Software Decoding)** benchmark specification for C++ Qt6 from the root [README.md](../../README.md), [BENCHMARK_FINDINGS.md](../../BENCHMARK_FINDINGS.md) §9.0, and [cpu/CPP/prompt.md](prompt.md).
+
+`src/platform.cpp` raises `RLIMIT_NOFILE` to 10240 and logs the OS path before `QApplication`. Stream stagger is `kStreamStaggerMs` (20ms).
 
 ## Architecture Overview
 
