@@ -10,14 +10,18 @@ from bench_utils import ROOT_DIR, execute_benchmark_session
 
 
 def find_command(base_dir: Path) -> list[str]:
-    # Look for compiled standalone binary first
-    candidates = list(base_dir.glob("bin/Release/**/rtsp-stress-test-csharp-gpu.exe"))
-    if candidates:
-        return [str(candidates[0])]
-    candidates_any = list(base_dir.glob("bin/**/rtsp-stress-test-csharp-gpu.exe"))
-    if candidates_any:
-        return [str(candidates_any[0])]
-    # Fallback to dotnet run
+    for pattern in (
+        "bin/Release/**/rtsp-stress-test-csharp-gpu.exe",
+        "bin/Release/**/rtsp-stress-test-csharp-gpu",
+        "bin/**/rtsp-stress-test-csharp-gpu.exe",
+        "bin/**/rtsp-stress-test-csharp-gpu",
+    ):
+        hits = [
+            p for p in base_dir.glob(pattern)
+            if p.is_file() and p.suffix in ("", ".exe")
+        ]
+        if hits:
+            return [str(hits[0])]
     return ["dotnet", "run", "-c", "Release"]
 
 

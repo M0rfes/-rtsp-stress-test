@@ -83,6 +83,9 @@ def main() -> None:
     start_all = time.time()
 
     for idx, (script, s_args, is_pause) in enumerate(steps, 1):
+        if is_pause and args.cool_mins <= 0:
+            print(f"\n[STEP {idx}/{total_steps}] skip cooldown (--cool-mins {args.cool_mins})")
+            continue
         print(f"\n[STEP {idx}/{total_steps}] ------------------------------------------")
         success = run_step(script, s_args)
         if not success:

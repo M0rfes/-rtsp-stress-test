@@ -340,8 +340,17 @@ def kill_all_benchmark_processes() -> None:
             run_cmd(["taskkill", "/F", "/T", "/IM", f"{name}.exe"])
             run_cmd(["taskkill", "/F", "/T", "/IM", name])
     else:
-        for name in target_names:
+        # Do not pkill generic node/ffmpeg/dotnet — that kills Cursor and MediaMTX's publisher.
+        for name in (
+            "rtsp-stress-test-cpp-cpu",
+            "rtsp-stress-test-cpp-gpu",
+            "rtsp-stress-test-csharp-cpu",
+            "rtsp-stress-test-csharp-gpu",
+        ):
             run_cmd(["pkill", "-9", "-f", name])
+        run_cmd(["pkill", "-9", "-f", "cpu/Electron"])
+        run_cmd(["pkill", "-9", "-f", "gpu/Electron"])
+        run_cmd(["pkill", "-9", "-f", "Electron.app"])
 
     # Allow OS 2 seconds to release socket handles & page files
     time.sleep(2.0)
@@ -453,6 +462,14 @@ def execute_benchmark_session(
     env["BENCHMARK_LOG_DIR"] = str(LOG_DIR)
     if extra_env:
         env.update(extra_env)
+    # phase2.py drops camN, not /live. Clients must read cam0..cam29 or churn is a no-op.
+    if "RTSP_URL_PATTERN" not in env:
+        if "%d" in rtsp_url:
+            env["RTSP_URL_PATTERN"] = rtsp_url
+        elif rtsp_url.rstrip("/").endswith("/live"):
+            env["RTSP_URL_PATTERN"] = rtsp_url.rstrip("/").rsplit("/", 1)[0] + "/cam%d"
+        else:
+            env["RTSP_URL_PATTERN"] = rtsp_url.rstrip("/") + "/cam%d"
 
     # Touch log file
     LOG_DIR.mkdir(parents=True, exist_ok=True)
