@@ -1,0 +1,547 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: RTSP benchmark fleet — S3 logs, IAM, security groups, launch templates (ap-southeast-2)
+
+Parameters:
+  UbuntuAmiId:
+    Type: AWS::EC2::Image::Id
+    Description: Ubuntu 24.04 amd64 AMI for the RTSP server and CPU clients
+  GpuAmiId:
+    Type: AWS::EC2::Image::Id
+    Description: Deep Learning Base GPU AMI (Ubuntu) for g4dn clients
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  CpuVolumeSize:
+    Type: Number
+    Default: 50
+  GpuVolumeSize:
+    Type: Number
+    Default: 120
+  ServerVolumeSize:
+    Type: Number
+    Default: 30
+  BudgetLimitUsd:
+    Type: Number
+    Default: 95
+    Description: Monthly COST budget in USD. Budgets evaluate about once per day; the 6-hour EventBridge terminate is the real-time cap.
+  BudgetNotificationEmail:
+    Type: String
+    Default: ""
+    AllowedPattern: '^$|.+@.+\..+'
+    Description: Email for $95 budget alerts and the automatic EC2 stop action. Leave empty for a monitoring-only budget.
+
+Conditions:
+  HasBudgetEmail: !Not [!Equals [!Ref BudgetNotificationEmail, ""]]
+
+Resources:
+  LogBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "rtsp-benchmark-logs-${AWS::AccountId}-${AWS::Region}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: true
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: AbortIncompleteUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      Tags:
+        - Key: Project
+          Value: rtsp-stress-test
+        - Key: ManagedBy
+          Value: rtsp-benchmark-infra
+
+  LogBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref LogBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt LogBucket.Arn
+              - !Sub "${LogBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+  Ec2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: rtsp-benchmark-ec2-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Tags:
+        - Key: Project
+          Value: rtsp-stress-test
+        - Key: ManagedBy
+          Value: rtsp-benchmark-infra
+
+  Ec2S3Policy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: rtsp-benchmark-s3
+      Roles:
+        - !Ref Ec2Role
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ListPrefixes
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+              - s3:GetBucketLocation
+            Resource: !GetAtt LogBucket.Arn
+            Condition:
+              StringLike:
+                s3:prefix:
+                  - code/*
+                  - runs/*
+          - Sid: ReadCode
+            Effect: Allow
+            Action:
+              - s3:GetObject
+            Resource:
+              - !Sub "${LogBucket.Arn}/code/*"
+              - !Sub "${LogBucket.Arn}/runs/*"
+          - Sid: WriteLogs
+            Effect: Allow
+            Action:
+              - s3:PutObject
+            Resource: !Sub "${LogBucket.Arn}/runs/*"
+
+  Ec2PeerSsmPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: rtsp-benchmark-peer-ssm
+      Roles:
+        - !Ref Ec2Role
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: SendCommandDocument
+            Effect: Allow
+            Action:
+              - ssm:SendCommand
+            Resource: !Sub "arn:aws:ssm:${AWS::Region}::document/AWS-RunShellScript"
+          - Sid: SendCommandInstances
+            Effect: Allow
+            Action:
+              - ssm:SendCommand
+            Resource: "*"
+            Condition:
+              StringEquals:
+                ssm:resourceTag/Project: rtsp-stress-test
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: rtsp-benchmark-ec2-role
+      Roles:
+        - !Ref Ec2Role
+
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: rtsp-benchmark-scheduler-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Policies:
+        - PolicyName: rtsp-benchmark-scheduler
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: SendCommandDocument
+                Effect: Allow
+                Action:
+                  - ssm:SendCommand
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}::document/AWS-RunShellScript"
+              - Sid: SendCommandInstances
+                Effect: Allow
+                Action:
+                  - ssm:SendCommand
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    ssm:resourceTag/Project: rtsp-stress-test
+              - Sid: TerminateTagged
+                Effect: Allow
+                Action:
+                  - ec2:TerminateInstances
+                Resource: !Sub "arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*"
+                Condition:
+                  StringEquals:
+                    ec2:ResourceTag/Project: rtsp-stress-test
+      Tags:
+        - Key: Project
+          Value: rtsp-stress-test
+        - Key: ManagedBy
+          Value: rtsp-benchmark-infra
+
+  SpendBudget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: rtsp-benchmark-95usd
+        BudgetLimit:
+          Amount: !Ref BudgetLimitUsd
+          Unit: USD
+        TimeUnit: MONTHLY
+        BudgetType: COST
+        CostTypes:
+          IncludeTax: true
+          IncludeSubscription: true
+          IncludeUpfront: true
+          IncludeRecurring: true
+          IncludeOtherSubscription: true
+          IncludeSupport: true
+          IncludeDiscount: true
+          IncludeCredit: false
+          IncludeRefund: false
+          UseBlended: false
+          UseAmortized: false
+      NotificationsWithSubscribers: !If
+        - HasBudgetEmail
+        - - Notification:
+              NotificationType: FORECASTED
+              ComparisonOperator: GREATER_THAN
+              Threshold: 80
+              ThresholdType: PERCENTAGE
+            Subscribers:
+              - SubscriptionType: EMAIL
+                Address: !Ref BudgetNotificationEmail
+          - Notification:
+              NotificationType: ACTUAL
+              ComparisonOperator: GREATER_THAN
+              Threshold: 90
+              ThresholdType: PERCENTAGE
+            Subscribers:
+              - SubscriptionType: EMAIL
+                Address: !Ref BudgetNotificationEmail
+          - Notification:
+              NotificationType: ACTUAL
+              ComparisonOperator: GREATER_THAN
+              Threshold: 100
+              ThresholdType: PERCENTAGE
+            Subscribers:
+              - SubscriptionType: EMAIL
+                Address: !Ref BudgetNotificationEmail
+        - !Ref AWS::NoValue
+
+  BudgetActionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: rtsp-benchmark-budget-actions-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: budgets.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub "arn:aws:budgets::${AWS::AccountId}:budget/rtsp-benchmark-95usd"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSBudgetsActions_RolePolicyForResourceAdministrationWithSSM
+      Policies:
+        - PolicyName: attach-deny-new-compute
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: AttachDenyToFleetRoles
+                Effect: Allow
+                Action:
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                Resource:
+                  - !GetAtt Ec2Role.Arn
+                  - !GetAtt SchedulerRole.Arn
+              - Sid: ReadDenyPolicy
+                Effect: Allow
+                Action:
+                  - iam:GetPolicy
+                  - iam:GetPolicyVersion
+                Resource: !Ref DenyNewComputePolicy
+      Tags:
+        - Key: Project
+          Value: rtsp-stress-test
+        - Key: ManagedBy
+          Value: rtsp-benchmark-infra
+
+  DenyNewComputePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: rtsp-benchmark-deny-new-compute
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyNewCompute
+            Effect: Deny
+            Action:
+              - ec2:RunInstances
+              - ec2:StartInstances
+            Resource: "*"
+
+  BudgetDenyLaunchAction:
+    Type: AWS::Budgets::BudgetsAction
+    Condition: HasBudgetEmail
+    DependsOn: SpendBudget
+    Properties:
+      BudgetName: rtsp-benchmark-95usd
+      ActionType: APPLY_IAM_POLICY
+      ApprovalModel: AUTOMATIC
+      NotificationType: ACTUAL
+      ActionThreshold:
+        Type: PERCENTAGE
+        Value: 90
+      ExecutionRoleArn: !GetAtt BudgetActionsRole.Arn
+      Definition:
+        IamActionDefinition:
+          PolicyArn: !Ref DenyNewComputePolicy
+          Roles:
+            - !Ref Ec2Role
+            - !Ref SchedulerRole
+      Subscribers:
+        - Type: EMAIL
+          Address: !Ref BudgetNotificationEmail
+
+  ClientSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: rtsp-benchmark-clients
+      GroupDescription: Benchmark clients, SSM only, no inbound SSH
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+          Description: apt, S3, SSM
+      Tags:
+        - Key: Name
+          Value: rtsp-benchmark-clients
+        - Key: Project
+          Value: rtsp-stress-test
+
+  ServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: rtsp-benchmark-server
+      GroupDescription: Shared RTSP server, TCP 8554 from clients only
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+          Description: apt, S3, SSM
+      Tags:
+        - Key: Name
+          Value: rtsp-benchmark-server
+        - Key: Project
+          Value: rtsp-stress-test
+
+  ServerRtspIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref ServerSecurityGroup
+      IpProtocol: tcp
+      FromPort: 8554
+      ToPort: 8554
+      SourceSecurityGroupId: !Ref ClientSecurityGroup
+      Description: RTSP from benchmark clients
+
+  ServerLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    DependsOn: InstanceProfile
+    Properties:
+      LaunchTemplateName: rtsp-benchmark-server
+      LaunchTemplateData:
+        ImageId: !Ref UbuntuAmiId
+        InstanceType: c7i.xlarge
+        IamInstanceProfile:
+          Name: !Ref InstanceProfile
+        SecurityGroupIds:
+          - !Ref ServerSecurityGroup
+        InstanceInitiatedShutdownBehavior: terminate
+        DisableApiTermination: false
+        MetadataOptions:
+          HttpTokens: required
+          HttpPutResponseHopLimit: 1
+          HttpEndpoint: enabled
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs:
+              VolumeSize: !Ref ServerVolumeSize
+              VolumeType: gp3
+              Encrypted: true
+              DeleteOnTermination: true
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Project
+                Value: rtsp-stress-test
+              - Key: ManagedBy
+                Value: rtsp-benchmark-infra
+              - Key: Environment
+                Value: testing
+              - Key: WorkloadType
+                Value: batch-processing
+          - ResourceType: volume
+            Tags:
+              - Key: Project
+                Value: rtsp-stress-test
+              - Key: ManagedBy
+                Value: rtsp-benchmark-infra
+              - Key: Environment
+                Value: testing
+              - Key: WorkloadType
+                Value: batch-processing
+
+  CpuLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    DependsOn: InstanceProfile
+    Properties:
+      LaunchTemplateName: rtsp-benchmark-cpu
+      LaunchTemplateData:
+        ImageId: !Ref UbuntuAmiId
+        InstanceType: c7i.8xlarge
+        IamInstanceProfile:
+          Name: !Ref InstanceProfile
+        SecurityGroupIds:
+          - !Ref ClientSecurityGroup
+        InstanceInitiatedShutdownBehavior: terminate
+        DisableApiTermination: false
+        MetadataOptions:
+          HttpTokens: required
+          HttpPutResponseHopLimit: 1
+          HttpEndpoint: enabled
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs:
+              VolumeSize: !Ref CpuVolumeSize
+              VolumeType: gp3
+              Encrypted: true
+              DeleteOnTermination: true
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Project
+                Value: rtsp-stress-test
+              - Key: ManagedBy
+                Value: rtsp-benchmark-infra
+              - Key: Environment
+                Value: testing
+              - Key: WorkloadType
+                Value: batch-processing
+          - ResourceType: volume
+            Tags:
+              - Key: Project
+                Value: rtsp-stress-test
+              - Key: ManagedBy
+                Value: rtsp-benchmark-infra
+              - Key: Environment
+                Value: testing
+              - Key: WorkloadType
+                Value: batch-processing
+
+  GpuLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    DependsOn: InstanceProfile
+    Properties:
+      LaunchTemplateName: rtsp-benchmark-gpu
+      LaunchTemplateData:
+        ImageId: !Ref GpuAmiId
+        InstanceType: g4dn.xlarge
+        IamInstanceProfile:
+          Name: !Ref InstanceProfile
+        SecurityGroupIds:
+          - !Ref ClientSecurityGroup
+        InstanceInitiatedShutdownBehavior: terminate
+        DisableApiTermination: false
+        MetadataOptions:
+          HttpTokens: required
+          HttpPutResponseHopLimit: 1
+          HttpEndpoint: enabled
+        BlockDeviceMappings:
+          - DeviceName: /dev/sda1
+            Ebs:
+              VolumeSize: !Ref GpuVolumeSize
+              VolumeType: gp3
+              Encrypted: true
+              DeleteOnTermination: true
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Project
+                Value: rtsp-stress-test
+              - Key: ManagedBy
+                Value: rtsp-benchmark-infra
+              - Key: Environment
+                Value: testing
+              - Key: WorkloadType
+                Value: batch-processing
+          - ResourceType: volume
+            Tags:
+              - Key: Project
+                Value: rtsp-stress-test
+              - Key: ManagedBy
+                Value: rtsp-benchmark-infra
+              - Key: Environment
+                Value: testing
+              - Key: WorkloadType
+                Value: batch-processing
+
+Outputs:
+  BucketName:
+    Value: !Ref LogBucket
+  InstanceProfileName:
+    Value: !Ref InstanceProfile
+  SchedulerRoleArn:
+    Value: !GetAtt SchedulerRole.Arn
+  ServerSecurityGroupId:
+    Value: !Ref ServerSecurityGroup
+  ClientSecurityGroupId:
+    Value: !Ref ClientSecurityGroup
+  ServerLaunchTemplateId:
+    Value: !Ref ServerLaunchTemplate
+  CpuLaunchTemplateId:
+    Value: !Ref CpuLaunchTemplate
+  GpuLaunchTemplateId:
+    Value: !Ref GpuLaunchTemplate
+  BudgetName:
+    Value: rtsp-benchmark-95usd
+  BudgetLimitUsd:
+    Value: !Ref BudgetLimitUsd
+  BudgetActionsRoleArn:
+    Value: !GetAtt BudgetActionsRole.Arn

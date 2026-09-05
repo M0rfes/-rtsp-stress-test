@@ -52,7 +52,7 @@ In production benchmarking, the RTSP video source runs on a **separate EC2 insta
 2. In Box A's Security Group, allow **Inbound TCP Port 8554** from Box B's Security Group (or your VPC CIDR, e.g. `10.0.0.0/16` or `172.31.0.0/16`).
 3. SSH into Box A and run the automated setup script:
    ```bash
-   ./scripts/start_rtsp_feed.sh
+   sudo ../../rtsp-server/setup.sh
    ```
 4. Note Box A's private IP (e.g. `10.0.1.50`). The stream is now live at `rtsp://<BOX_A_PRIVATE_IP>:8554/live`.
 

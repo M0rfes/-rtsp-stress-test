@@ -118,6 +118,14 @@ public static class FFmpegHelper
             candidates.Add(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg", "bin"));
             candidates.Add(AppDomain.CurrentDomain.BaseDirectory);
             candidates.Add(@"C:\ffmpeg\bin");
+            candidates.Add(@"C:\Program Files\ffmpeg\bin");
+            candidates.Add(@"C:\tools\ffmpeg\bin");
+            candidates.Add(@"C:\vcpkg\installed\x64-windows\bin");
+            var pathVar = Environment.GetEnvironmentVariable("PATH");
+            if (!string.IsNullOrEmpty(pathVar))
+            {
+                candidates.AddRange(pathVar.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries));
+            }
         }
 
         foreach (var dir in candidates)

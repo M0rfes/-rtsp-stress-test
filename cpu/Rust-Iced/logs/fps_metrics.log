@@ -1,0 +1,120 @@
+{
+  "timestamp": "2026-09-03T18:13:08Z",
+  "machine_id": "c7i-8xlarge-node-1",
+  "framework": "rust_iced",
+  "hardware_mode": "cpu",
+  "window_duration_seconds": 60,
+  "active_streams": 30,
+  "fps_stream_seconds": {
+    "acceptable": {
+      "25_to_30_fps": 0,
+      "20_to_24_fps": 0
+    },
+    "unacceptable": {
+      "10_to_19_fps": 0,
+      "5_to_9_fps": 1740,
+      "under_5_fps": 60
+    }
+  }
+}
+
+{
+  "timestamp": "2026-09-03T18:14:08Z",
+  "machine_id": "c7i-8xlarge-node-1",
+  "framework": "rust_iced",
+  "hardware_mode": "cpu",
+  "window_duration_seconds": 60,
+  "active_streams": 30,
+  "fps_stream_seconds": {
+    "acceptable": {
+      "25_to_30_fps": 0,
+      "20_to_24_fps": 0
+    },
+    "unacceptable": {
+      "10_to_19_fps": 60,
+      "5_to_9_fps": 1740,
+      "under_5_fps": 0
+    }
+  }
+}
+
+{
+  "timestamp": "2026-09-03T18:15:08Z",
+  "machine_id": "c7i-8xlarge-node-1",
+  "framework": "rust_iced",
+  "hardware_mode": "cpu",
+  "window_duration_seconds": 60,
+  "active_streams": 30,
+  "fps_stream_seconds": {
+    "acceptable": {
+      "25_to_30_fps": 0,
+      "20_to_24_fps": 0
+    },
+    "unacceptable": {
+      "10_to_19_fps": 60,
+      "5_to_9_fps": 1710,
+      "under_5_fps": 30
+    }
+  }
+}
+
+{
+  "timestamp": "2026-09-03T18:19:18Z",
+  "machine_id": "c7i-8xlarge-node-1",
+  "framework": "rust_iced",
+  "hardware_mode": "cpu",
+  "window_duration_seconds": 60,
+  "active_streams": 30,
+  "fps_stream_seconds": {
+    "acceptable": {
+      "25_to_30_fps": 0,
+      "20_to_24_fps": 1
+    },
+    "unacceptable": {
+      "10_to_19_fps": 1708,
+      "5_to_9_fps": 59,
+      "under_5_fps": 32
+    }
+  }
+}
+
+{
+  "timestamp": "2026-09-03T18:20:18Z",
+  "machine_id": "c7i-8xlarge-node-1",
+  "framework": "rust_iced",
+  "hardware_mode": "cpu",
+  "window_duration_seconds": 60,
+  "active_streams": 30,
+  "fps_stream_seconds": {
+    "acceptable": {
+      "25_to_30_fps": 0,
+      "20_to_24_fps": 3
+    },
+    "unacceptable": {
+      "10_to_19_fps": 1575,
+      "5_to_9_fps": 222,
+      "under_5_fps": 0
+    }
+  }
+}
+
+{
+  "timestamp": "2026-09-03T18:22:24Z",
+  "machine_id": "c7i-8xlarge-node-1",
+  "framework": "rust_iced",
+  "hardware_mode": "cpu",
+  "window_duration_seconds": 60,
+  "active_streams": 4,
+  "fps_stream_seconds": {
+    "acceptable": {
+      "25_to_30_fps": 198,
+      "20_to_24_fps": 38
+    },
+    "unacceptable": {
+      "10_to_19_fps": 0,
+      "5_to_9_fps": 0,
+      "under_5_fps": 4
+    }
+  }
+}
+

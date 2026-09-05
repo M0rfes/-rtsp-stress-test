@@ -59,32 +59,11 @@ To eliminate encoding interference, Box A publishes the feed while Box B runs th
    ```bash
    ssh -i your-key.pem ubuntu@<BOX_A_PUBLIC_IP>
    ```
-2. Install MediaMTX and FFmpeg:
+2. Clone the repo and install the shared server (300 TCP readers):
    ```bash
-   sudo apt update && sudo apt install -y ffmpeg wget netcat-openbsd
-   wget https://github.com/bluenviron/mediamtx/releases/download/v1.9.0/mediamtx_v1.9.0_linux_amd64.tar.gz
-   tar -xzf mediamtx_v1.9.0_linux_amd64.tar.gz && sudo mv mediamtx /usr/local/bin/
+   sudo ./rtsp-server/setup.sh
    ```
-3. Configure `mediamtx.yml` with large buffer queues for 30 concurrent readers:
-   ```bash
-   cat << 'EOF' > mediamtx.yml
-   api: yes
-   protocols: [tcp]
-   readBufferCount: 8192
-   writeQueueSize: 8192
-   paths:
-     all:
-   EOF
-   ```
-4. Start MediaMTX and publish the 1440p 25 FPS stream:
-   ```bash
-   mediamtx mediamtx.yml &
-
-   ffmpeg -re -f lavfi -i "testsrc2=size=2560x1440:rate=25" \
-     -c:v libx264 -preset ultrafast -tune zerolatency -threads 4 \
-     -g 25 -pix_fmt yuv420p \
-     -f rtsp -rtsp_transport tcp rtsp://127.0.0.1:8554/live
-   ```
+   Stream URL: `rtsp://<BOX_A_PRIVATE_IP>:8554/live`
 
 ---
 

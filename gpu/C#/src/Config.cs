@@ -6,6 +6,7 @@ namespace RtspStressTest;
 public sealed class AppConfig
 {
     public string RtspUrl { get; set; } = "rtsp://127.0.0.1:8554/live";
+    public string? RtspUrlPattern { get; set; }
     public int StreamCount { get; set; } = 30;
     public string LogPath { get; set; } = "/var/log/benchmark/fps_metrics.log";
     public string MachineId { get; set; } = Environment.MachineName;
@@ -21,6 +22,12 @@ public sealed class AppConfig
         if (!string.IsNullOrWhiteSpace(envUrl))
         {
             config.RtspUrl = envUrl;
+        }
+
+        var envPattern = Environment.GetEnvironmentVariable("RTSP_URL_PATTERN");
+        if (!string.IsNullOrWhiteSpace(envPattern))
+        {
+            config.RtspUrlPattern = envPattern;
         }
 
         var envCount = Environment.GetEnvironmentVariable("STREAM_COUNT");
@@ -117,7 +124,20 @@ public sealed class AppConfig
         }
 
         config.LogPath = ResolveLogPath(config.LogPath);
+        if (string.IsNullOrEmpty(config.RtspUrlPattern) && config.RtspUrl.Contains("%d"))
+        {
+            config.RtspUrlPattern = config.RtspUrl;
+        }
         return config;
+    }
+
+    public string UrlForStream(int zeroBasedIndex)
+    {
+        if (string.IsNullOrEmpty(RtspUrlPattern))
+        {
+            return RtspUrl;
+        }
+        return RtspUrlPattern.Replace("%d", zeroBasedIndex.ToString());
     }
 
     private static string ResolveLogPath(string preferredPath)

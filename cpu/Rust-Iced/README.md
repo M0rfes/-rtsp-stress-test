@@ -148,15 +148,15 @@ This implementation fulfills the **CPU-Only (Software Decoding)** benchmark spec
 ### 1. Prerequisites
 - **Rust Toolchain:** `rustc >= 1.88` (Recommended: `rustup update`)
 - **GStreamer:**
-  - macOS: `brew install gstreamer ffmpeg mediamtx`
+  - macOS: `brew install gstreamer ffmpeg`
   - Ubuntu / Debian: `sudo apt install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools libx11-dev libxcursor-dev libxrandr-dev libxi-dev libxkbcommon-dev libwayland-dev ffmpeg xvfb`
 
-### 2. Start the Local RTSP Test Feed (1440p 25 FPS)
-In a separate terminal:
+### 2. Start the shared RTSP server
+From the repo root:
 ```bash
-./scripts/start_rtsp_feed.sh
+./rtsp-server/start.sh
 ```
-This runs MediaMTX and publishes a 2560×1440 25 FPS H.264 test pattern to `rtsp://127.0.0.1:8554/live`.
+Serves `rtsp://127.0.0.1:8554/live` for all 10 clients (300 TCP readers).
 
 ### 3. Run in Development Mode
 ```bash

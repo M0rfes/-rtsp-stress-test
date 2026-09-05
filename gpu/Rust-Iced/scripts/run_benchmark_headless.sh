@@ -37,6 +37,20 @@ echo "Hardware Decoder:   $H264_DECODER"
 echo "WGPU Backend:       $WGPU_BACKEND"
 echo "Log Directory:      $BENCHMARK_LOG_DIR"
 
+RTSP_HOST=$(echo "$RTSP_URL" | sed -e 's|^.*://||' -e 's|/.*$||' -e 's|:.*$||')
+RTSP_PORT=$(echo "$RTSP_URL" | sed -e 's|^.*://||' -e 's|/.*$||' | grep ':' | sed -e 's|^.*:||')
+RTSP_PORT="${RTSP_PORT:-8554}"
+RTSP_SERVER_DIR="$(cd "$PROJECT_ROOT/../.." && pwd)/rtsp-server"
+echo "[*] Shared RTSP server (10 × 30 = 300 readers): $RTSP_HOST:$RTSP_PORT"
+if command -v nc >/dev/null 2>&1; then
+  if nc -z -w 3 "$RTSP_HOST" "$RTSP_PORT" 2>/dev/null; then
+    echo "[✓] RTSP server reachable at $RTSP_HOST:$RTSP_PORT"
+  else
+    echo "[!] RTSP server not reachable at $RTSP_HOST:$RTSP_PORT"
+    echo "    Start it with: $RTSP_SERVER_DIR/start.sh"
+  fi
+fi
+
 # Launch headless via Xvfb with matching 2560x1440 resolution
 xvfb-run -a -s "-screen 0 2560x1440x24" "$BINARY" &
 BENCH_PID=$!

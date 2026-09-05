@@ -1,0 +1,679 @@
+===============================================================
+ 6-Hour RTSP 30-Video Grid Benchmark (C# Avalonia GPU Decode) 
+===============================================================
+[System] Raised RLIMIT_NOFILE from 10240 to 10240 (max: 9223372036854775807)
+[Platform] macOS: VideoToolbox + IOSurface / OpenGL (no VA-API/EGL)
+[Platform] OS: macOS
+[Config] Active Streams: 30
+[Config] RTSP URL:       rtsp://127.0.0.1:8554/live
+[Config] Machine ID:     morfess-MacBook-Air
+[Config] Telemetry Log:  logs/fps_metrics.log
+[Config] HwAccel:        auto
+[FFmpeg] Loading native libraries from: /opt/homebrew/opt/ffmpeg/lib
+[FFmpeg] Detected avcodec version: 63
+[FFmpeg] Detected avformat version: 63
+[FFmpeg] Detected avutil version: 61
+[FFmpeg] Detected swscale version: 10
+[FFmpeg] Successfully initialized FFmpeg native bindings: 9.0.1
+[HwAccel] Successfully initialized GPU hardware acceleration: videotoolbox
+[HwAccel] Active GPU Device: videotoolbox
+[h264 @ 0xc9b422a00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c107100] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b420a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c106a00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9be7bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9bd2f480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9bd2c000] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c106300] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b423480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c105500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b2a7b80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b2a7100] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c107100] hardware accelerator failed to decode picture
+[h264 @ 0xc9c105c00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b420a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9bd2c000] hardware accelerator failed to decode picture
+[h264 @ 0xc9b423480] hardware accelerator failed to decode picture
+[h264 @ 0xc9bd2f480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c106a00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c106300] hardware accelerator failed to decode picture
+[h264 @ 0xc9be7bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9b422a00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c104a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9be79180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c107800] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c105500] hardware accelerator failed to decode picture
+[h264 @ 0xc9b2a7100] hardware accelerator failed to decode picture
+[h264 @ 0xc9c105c00] hardware accelerator failed to decode picture
+[h264 @ 0xc9b2a7b80] hardware accelerator failed to decode picture
+[h264 @ 0xc9be79180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c104a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c107800] hardware accelerator failed to decode picture
+[h264 @ 0xc9be7bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c105c00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9bd2c000] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b423480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b2a7b80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c107100] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c105500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b422a00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9be7bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9b2a7100] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c106300] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b420a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c107100] hardware accelerator failed to decode picture
+[h264 @ 0xc9b423480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c105500] hardware accelerator failed to decode picture
+[h264 @ 0xc9b2a7100] hardware accelerator failed to decode picture
+[h264 @ 0xc9bd2c000] hardware accelerator failed to decode picture
+[h264 @ 0xc9b2a7b80] hardware accelerator failed to decode picture
+[h264 @ 0xc9be79180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c104a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b422a00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c105c00] hardware accelerator failed to decode picture
+[h264 @ 0xc9bd2f480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b420a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c106300] hardware accelerator failed to decode picture
+[h264 @ 0xc9be79180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c104a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9bd2f480] hardware accelerator failed to decode picture
+[h264 @ 0xc9be7bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b2a7100] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b423480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b2a7b80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c105c00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c105500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b422a00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9bd2c000] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b423480] hardware accelerator failed to decode picture
+[h264 @ 0xc9bd2f480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c105c00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c107100] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b2a7100] hardware accelerator failed to decode picture
+[h264 @ 0xc9b2a7b80] hardware accelerator failed to decode picture
+[h264 @ 0xc9b420a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9be7bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9b422a00] hardware accelerator failed to decode picture
+[h264 @ 0xc9bd2c000] hardware accelerator failed to decode picture
+[h264 @ 0xc9c105500] hardware accelerator failed to decode picture
+[h264 @ 0xc9c107100] hardware accelerator failed to decode picture
+[h264 @ 0xc9bd2f480] hardware accelerator failed to decode picture
+[h264 @ 0xc9b420a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c104a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c104a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9b423480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b2a7b80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b420a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b422a00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c107100] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b2a7100] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c105500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9bd2c000] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c105c00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b423480] hardware accelerator failed to decode picture
+[h264 @ 0xc9b2a7b80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c107100] hardware accelerator failed to decode picture
+[h264 @ 0xc9c105c00] hardware accelerator failed to decode picture
+[h264 @ 0xc9b422a00] hardware accelerator failed to decode picture
+[h264 @ 0xc9b2a7100] hardware accelerator failed to decode picture
+[h264 @ 0xc9b420a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c105500] hardware accelerator failed to decode picture
+[h264 @ 0xc9bd2c000] hardware accelerator failed to decode picture
+[h264 @ 0xc9c104a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c104a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c105c00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b2a7b80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c105c00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c107100] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b420a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b2a7b80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c107100] hardware accelerator failed to decode picture
+[h264 @ 0xc9c105500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b2a7100] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b423480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c104a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c105500] hardware accelerator failed to decode picture
+[h264 @ 0xc9b420a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c104a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9b423480] hardware accelerator failed to decode picture
+[h264 @ 0xc9b2a7100] hardware accelerator failed to decode picture
+[h264 @ 0xc9bd2c000] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9bd2c000] hardware accelerator failed to decode picture
+[h264 @ 0xc9c105500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c105c00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b420a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c107100] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c104a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b2a7b80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c105500] hardware accelerator failed to decode picture
+[h264 @ 0xc9b2a7100] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b420a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c105c00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c104a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9b2a7100] hardware accelerator failed to decode picture
+[h264 @ 0xc9b2a7b80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c107100] hardware accelerator failed to decode picture
+[h264 @ 0xc9b2a7b80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b2a7100] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c105500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b2a7b80] hardware accelerator failed to decode picture
+[h264 @ 0xc9b420a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c105500] hardware accelerator failed to decode picture
+[h264 @ 0xc9b2a7100] hardware accelerator failed to decode picture
+[h264 @ 0xc9c105c00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b420a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c105c00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c105c00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c105500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b2a7100] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c105c00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c105500] hardware accelerator failed to decode picture
+[h264 @ 0xc9b2a7100] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c298a80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299180] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c298a80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299180] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c299f80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299880] hardware accelerator failed to decode picture
+[h264 @ 0xc9c299f80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29a680] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29a680] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c069500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c069500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c069500] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c069500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c069500] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c069500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c069500] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c069500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c069500] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29ad80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c069500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29ad80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c069500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c069500] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c069500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c069500] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c069500] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c069500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] hardware accelerator failed to decode picture
+[h264 @ 0xc9b52aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9b52aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c069500] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c069500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9b52aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b52aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9b52aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b52aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c29bb80] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9b52aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c069500] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c29bb80] hardware accelerator failed to decode picture
+[h264 @ 0xc9b52aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c069500] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b52aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b52aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9b52aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b52aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9b52aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b52aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9b52aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b52aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b52aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9b52aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b52aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9b52aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9b52aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b52aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9b52aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b52aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b52aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06b480] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06b480] hardware accelerator failed to decode picture
+[h264 @ 0xc9b52aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9c06aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b52aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9c06aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9b52aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9b52aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b52aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9b52aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b52aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9b52aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b52aa00] hardware accelerator failed to decode picture
+[h264 @ 0xc9b52aa00] vt decoder cb: output image buffer is null: -12909, reconfig 1
+[h264 @ 0xc9b52aa00] hardware accelerator failed to decode picture

@@ -1,9 +1,3 @@
-# Benchmark logs & metrics
-*.log
-*.csv
-logs/
-/var/log/benchmark/
-
 # OS files
 .DS_Store
 Thumbs.db

@@ -9,7 +9,6 @@
     "build:frontend": "tsc && vite build",
     "build": "tauri build",
     "start": "tauri dev",
-    "rtsp:feed": "./scripts/start_rtsp_feed.sh",
     "poll:hardware": "./scripts/poll_hardware.sh",
     "start:headless": "xvfb-run -s \"-screen 0 2560x1440x24\" npm run start",
     "benchmark:headless": "./scripts/run_benchmark_headless.sh"

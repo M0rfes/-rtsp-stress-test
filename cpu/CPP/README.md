@@ -120,7 +120,7 @@ This implementation fulfills the **CPU-Only (Software Decoding)** benchmark spec
 ### Prerequisites
 - **macOS:**
   ```bash
-  brew install cmake pkg-config qtbase ffmpeg mediamtx
+  brew install cmake pkg-config qtbase ffmpeg
   ```
 - **Ubuntu 22.04 / 24.04 LTS:**
   ```bash

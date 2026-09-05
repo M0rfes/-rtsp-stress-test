@@ -36,32 +36,24 @@ if [ ! -f "$BINARY_PATH" ]; then
   cmake --build build -j"$NPROC"
 fi
 
-FEED_PID=""
-# Parse RTSP host and port
 RTSP_HOST=$(echo "$RTSP_URL" | sed -e 's|^.*://||' -e 's|/.*$||' -e 's|:.*$||')
 RTSP_PORT=$(echo "$RTSP_URL" | sed -e 's|^.*://||' -e 's|/.*$||' | grep ':' | sed -e 's|^.*:||')
 RTSP_PORT="${RTSP_PORT:-8554}"
+RTSP_SERVER_DIR="$(cd "$DIR/../.." && pwd)/rtsp-server"
 
-if [[ "$RTSP_HOST" == "127.0.0.1" ]] || [[ "$RTSP_HOST" == "localhost" ]]; then
-  # Local feed test mode
-  if ! (echo > /dev/tcp/127.0.0.1/8554) 2>/dev/null; then
-    echo "[*] Local RTSP server not detected on port 8554. Starting local MediaMTX test feed..."
-    "$DIR/scripts/start_rtsp_feed.sh" &
-    FEED_PID=$!
-    sleep 2
+echo "[*] Shared RTSP server (10 × 30 = 300 readers): $RTSP_HOST:$RTSP_PORT"
+if command -v nc >/dev/null 2>&1; then
+  if nc -z -w 3 "$RTSP_HOST" "$RTSP_PORT" 2>/dev/null; then
+    echo "[✓] RTSP server reachable at $RTSP_HOST:$RTSP_PORT"
+  else
+    echo "[!] RTSP server not reachable at $RTSP_HOST:$RTSP_PORT"
+    echo "    Start it with: $RTSP_SERVER_DIR/start.sh"
+    echo "    Dedicated box: sudo $RTSP_SERVER_DIR/setup.sh"
   fi
-else
-  # Remote / Separate VPC Box Mode
-  echo "[*] RTSP stream hosted on separate VPC box: $RTSP_HOST:$RTSP_PORT"
-  echo "[*] Testing network connectivity to $RTSP_HOST:$RTSP_PORT..."
-  if command -v nc >/dev/null 2>&1; then
-    if nc -z -w 3 "$RTSP_HOST" "$RTSP_PORT" 2>/dev/null; then
-      echo "[✓] Successfully connected to RTSP server on $RTSP_HOST:$RTSP_PORT"
-    else
-      echo "[!] WARNING: Unable to connect to $RTSP_HOST:$RTSP_PORT."
-      echo "    Ensure Box A has port $RTSP_PORT open in AWS Security Groups."
-      echo "    The benchmark will continue and auto-reconnect as soon as the feed comes online."
-    fi
+elif [[ "$RTSP_HOST" == "127.0.0.1" ]] || [[ "$RTSP_HOST" == "localhost" ]]; then
+  if ! (echo > /dev/tcp/127.0.0.1/"$RTSP_PORT") 2>/dev/null; then
+    echo "[!] Local RTSP server not detected on port $RTSP_PORT"
+    echo "    Start it with: $RTSP_SERVER_DIR/start.sh"
   fi
 fi
 
@@ -87,9 +79,6 @@ POLL_PID=$!
 cleanup() {
   echo "[*] Stopping benchmark..."
   kill "$APP_PID" "$POLL_PID" 2>/dev/null || true
-  if [ -n "$FEED_PID" ]; then
-    kill "$FEED_PID" 2>/dev/null || true
-  fi
   exit 0
 }
 

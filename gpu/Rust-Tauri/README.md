@@ -142,7 +142,7 @@ This implementation fulfills the **GPU-Accelerated (Zero-Copy)** benchmark speci
 - **Rust Toolchain:** `rustc >= 1.90` (Install via `rustup update`)
 - **Node.js:** Node.js >= 18 (Tested on Node 22)
 - **GStreamer:**
-  - macOS: `brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-rtsp-server mediamtx ffmpeg`
+  - macOS: `brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-rtsp-server ffmpeg`
   - Ubuntu/Debian: `sudo ./scripts/ec2_userdata.sh`
 
 ### 2. Install Frontend Dependencies
@@ -150,9 +150,9 @@ This implementation fulfills the **GPU-Accelerated (Zero-Copy)** benchmark speci
 npm install
 ```
 
-### 3. Start Local MediaMTX RTSP Server (Optional for standalone testing)
+### 3. Start the shared RTSP server
 ```bash
-npm run rtsp:feed
+../../rtsp-server/start.sh
 ```
 
 ### 4. Run Development Mode

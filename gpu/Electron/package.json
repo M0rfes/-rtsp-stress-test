@@ -11,7 +11,6 @@
     "start:ui": "node scripts/launch-electron.js",
     "dev:renderer": "vite",
     "dev": "npm run build:main && concurrently -k -n \"VITE,ELECTRON\" -c \"blue,green\" \"vite\" \"node scripts/launch-electron.js\"",
-    "rtsp:feed": "./scripts/start_rtsp_feed.sh",
     "poll:hardware": "./scripts/poll_hardware.sh",
     "start:headless": "xvfb-run -a -s \"-screen 0 2560x1440x24\" electron . --enable-features=VaapiVideoDecoder,VaapiVideoDecodeLinuxGL,VaapiOnNvidiaGPUs --use-gl=egl --disable-software-rasterizer",
     "benchmark:headless": "./scripts/run_benchmark_headless.sh"

@@ -1,10 +1,21 @@
 #include "gl_shader.h"
+
+#include <QOpenGLContext>
+#include <QByteArray>
 #include <iostream>
 
+static QByteArray withGlslPreamble(const char* body) {
+    const QOpenGLContext* ctx = QOpenGLContext::currentContext();
+    if (ctx && ctx->isOpenGLES()) {
+        return QByteArrayLiteral("#version 300 es\nprecision mediump float;\n") + body;
+    }
+    return QByteArrayLiteral("#version 330 core\n") + body;
+}
+
 static const char* VS_SOURCE = R"(
-attribute vec2 aPosition;
-attribute vec2 aTexCoord;
-varying vec2 vTexCoord;
+in vec2 aPosition;
+in vec2 aTexCoord;
+out vec2 vTexCoord;
 
 void main() {
     gl_Position = vec4(aPosition, 0.0, 1.0);
@@ -13,18 +24,15 @@ void main() {
 )";
 
 static const char* FS_NV12_SOURCE = R"(
-#ifdef GL_ES
-precision mediump float;
-#endif
-varying vec2 vTexCoord;
+in vec2 vTexCoord;
+out vec4 fragColor;
 uniform sampler2D texY;
 uniform sampler2D texUV;
 
 void main() {
-    float y = texture2D(texY, vTexCoord).r;
-    vec2 uv = texture2D(texUV, vTexCoord).rg;
+    float y = texture(texY, vTexCoord).r;
+    vec2 uv = texture(texUV, vTexCoord).rg;
 
-    // Standard BT.709 Hardware Color Conversion
     float u = uv.r - 0.5;
     float v = uv.g - 0.5;
 
@@ -32,42 +40,37 @@ void main() {
     float g = y - 0.1873 * u - 0.4681 * v;
     float b = y + 1.8556 * u;
 
-    gl_FragColor = vec4(clamp(r, 0.0, 1.0), clamp(g, 0.0, 1.0), clamp(b, 0.0, 1.0), 1.0);
+    fragColor = vec4(clamp(r, 0.0, 1.0), clamp(g, 0.0, 1.0), clamp(b, 0.0, 1.0), 1.0);
 }
 )";
 
 static const char* FS_YUV420P_SOURCE = R"(
-#ifdef GL_ES
-precision mediump float;
-#endif
-varying vec2 vTexCoord;
+in vec2 vTexCoord;
+out vec4 fragColor;
 uniform sampler2D texY;
 uniform sampler2D texU;
 uniform sampler2D texV;
 
 void main() {
-    float y = texture2D(texY, vTexCoord).r;
-    float u = texture2D(texU, vTexCoord).r - 0.5;
-    float v = texture2D(texV, vTexCoord).r - 0.5;
+    float y = texture(texY, vTexCoord).r;
+    float u = texture(texU, vTexCoord).r - 0.5;
+    float v = texture(texV, vTexCoord).r - 0.5;
 
-    // Standard BT.709 Hardware Color Conversion
     float r = y + 1.5748 * v;
     float g = y - 0.1873 * u - 0.4681 * v;
     float b = y + 1.8556 * u;
 
-    gl_FragColor = vec4(clamp(r, 0.0, 1.0), clamp(g, 0.0, 1.0), clamp(b, 0.0, 1.0), 1.0);
+    fragColor = vec4(clamp(r, 0.0, 1.0), clamp(g, 0.0, 1.0), clamp(b, 0.0, 1.0), 1.0);
 }
 )";
 
 static const char* FS_RGBA_SOURCE = R"(
-#ifdef GL_ES
-precision mediump float;
-#endif
-varying vec2 vTexCoord;
+in vec2 vTexCoord;
+out vec4 fragColor;
 uniform sampler2D texRGBA;
 
 void main() {
-    gl_FragColor = texture2D(texRGBA, vTexCoord);
+    fragColor = texture(texRGBA, vTexCoord);
 }
 )";
 
@@ -77,7 +80,7 @@ bool VideoShaderProgram::init(QOpenGLFunctions* /*f*/, VideoShaderType type) {
     m_type = type;
     m_program = std::make_unique<QOpenGLShaderProgram>();
 
-    if (!m_program->addShaderFromSourceCode(QOpenGLShader::Vertex, VS_SOURCE)) {
+    if (!m_program->addShaderFromSourceCode(QOpenGLShader::Vertex, withGlslPreamble(VS_SOURCE))) {
         std::cerr << "[GLShader] Vertex shader compilation failed:\n"
                   << m_program->log().toStdString() << std::endl;
         return false;
@@ -96,7 +99,7 @@ bool VideoShaderProgram::init(QOpenGLFunctions* /*f*/, VideoShaderType type) {
             break;
     }
 
-    if (!m_program->addShaderFromSourceCode(QOpenGLShader::Fragment, fsCode)) {
+    if (!m_program->addShaderFromSourceCode(QOpenGLShader::Fragment, withGlslPreamble(fsCode))) {
         std::cerr << "[GLShader] Fragment shader compilation failed:\n"
                   << m_program->log().toStdString() << std::endl;
         return false;

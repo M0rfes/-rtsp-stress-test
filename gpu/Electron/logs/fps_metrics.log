@@ -1,0 +1,220 @@
+{
+  "timestamp": "2026-09-04T10:16:41.946Z",
+  "machine_id": "morfess-MacBook-Air.local",
+  "framework": "electron",
+  "hardware_mode": "gpu",
+  "window_duration_seconds": 60,
+  "active_streams": 29,
+  "fps_stream_seconds": {
+    "acceptable": {
+      "25_to_30_fps": 799,
+      "20_to_24_fps": 184
+    },
+    "unacceptable": {
+      "10_to_19_fps": 755,
+      "5_to_9_fps": 0,
+      "under_5_fps": 0
+    }
+  }
+}
+
+{
+  "timestamp": "2026-09-04T10:18:04.762Z",
+  "machine_id": "morfess-MacBook-Air.local",
+  "framework": "electron",
+  "hardware_mode": "gpu",
+  "window_duration_seconds": 60,
+  "active_streams": 30,
+  "fps_stream_seconds": {
+    "acceptable": {
+      "25_to_30_fps": 0,
+      "20_to_24_fps": 432
+    },
+    "unacceptable": {
+      "10_to_19_fps": 1364,
+      "5_to_9_fps": 2,
+      "under_5_fps": 2
+    }
+  }
+}
+
+{
+  "timestamp": "2026-09-04T10:19:12.362Z",
+  "machine_id": "morfess-MacBook-Air.local",
+  "framework": "electron",
+  "hardware_mode": "gpu",
+  "window_duration_seconds": 60,
+  "active_streams": 30,
+  "fps_stream_seconds": {
+    "acceptable": {
+      "25_to_30_fps": 0,
+      "20_to_24_fps": 193
+    },
+    "unacceptable": {
+      "10_to_19_fps": 857,
+      "5_to_9_fps": 0,
+      "under_5_fps": 0
+    }
+  }
+}
+
+{
+  "timestamp": "2026-09-04T10:22:08.067Z",
+  "machine_id": "morfess-MacBook-Air.local",
+  "framework": "electron",
+  "hardware_mode": "gpu",
+  "window_duration_seconds": 60,
+  "active_streams": 10,
+  "fps_stream_seconds": {
+    "acceptable": {
+      "25_to_30_fps": 543,
+      "20_to_24_fps": 37
+    },
+    "unacceptable": {
+      "10_to_19_fps": 0,
+      "5_to_9_fps": 0,
+      "under_5_fps": 0
+    }
+  }
+}
+
+{
+  "timestamp": "2026-09-04T10:22:26.588Z",
+  "machine_id": "morfess-MacBook-Air.local",
+  "framework": "electron",
+  "hardware_mode": "gpu",
+  "window_duration_seconds": 60,
+  "active_streams": 10,
+  "fps_stream_seconds": {
+    "acceptable": {
+      "25_to_30_fps": 170,
+      "20_to_24_fps": 0
+    },
+    "unacceptable": {
+      "10_to_19_fps": 0,
+      "5_to_9_fps": 0,
+      "under_5_fps": 0
+    }
+  }
+}
+
+{
+  "timestamp": "2026-09-04T10:23:42.712Z",
+  "machine_id": "morfess-MacBook-Air.local",
+  "framework": "electron",
+  "hardware_mode": "gpu",
+  "window_duration_seconds": 60,
+  "active_streams": 20,
+  "fps_stream_seconds": {
+    "acceptable": {
+      "25_to_30_fps": 1178,
+      "20_to_24_fps": 21
+    },
+    "unacceptable": {
+      "10_to_19_fps": 0,
+      "5_to_9_fps": 0,
+      "under_5_fps": 0
+    }
+  }
+}
+
+{
+  "timestamp": "2026-09-04T10:23:42.962Z",
+  "machine_id": "morfess-MacBook-Air.local",
+  "framework": "electron",
+  "hardware_mode": "gpu",
+  "window_duration_seconds": 60,
+  "active_streams": 20,
+  "fps_stream_seconds": {
+    "acceptable": {
+      "25_to_30_fps": 0,
+      "20_to_24_fps": 0
+    },
+    "unacceptable": {
+      "10_to_19_fps": 0,
+      "5_to_9_fps": 0,
+      "under_5_fps": 0
+    }
+  }
+}
+
+{
+  "timestamp": "2026-09-04T10:25:04.360Z",
+  "machine_id": "morfess-MacBook-Air.local",
+  "framework": "electron",
+  "hardware_mode": "gpu",
+  "window_duration_seconds": 60,
+  "active_streams": 24,
+  "fps_stream_seconds": {
+    "acceptable": {
+      "25_to_30_fps": 1430,
+      "20_to_24_fps": 30
+    },
+    "unacceptable": {
+      "10_to_19_fps": 0,
+      "5_to_9_fps": 0,
+      "under_5_fps": 0
+    }
+  }
+}
+
+{
+  "timestamp": "2026-09-04T10:25:45.022Z",
+  "machine_id": "morfess-MacBook-Air.local",
+  "framework": "electron",
+  "hardware_mode": "gpu",
+  "window_duration_seconds": 60,
+  "active_streams": 25,
+  "fps_stream_seconds": {
+    "acceptable": {
+      "25_to_30_fps": 875,
+      "20_to_24_fps": 125
+    },
+    "unacceptable": {
+      "10_to_19_fps": 0,
+      "5_to_9_fps": 0,
+      "under_5_fps": 0
+    }
+  }
+}
+
+{
+  "timestamp": "2026-09-04T10:26:56.109Z",
+  "machine_id": "morfess-MacBook-Air.local",
+  "framework": "electron",
+  "hardware_mode": "gpu",
+  "window_duration_seconds": 60,
+  "active_streams": 30,
+  "fps_stream_seconds": {
+    "acceptable": {
+      "25_to_30_fps": 278,
+      "20_to_24_fps": 175
+    },
+    "unacceptable": {
+      "10_to_19_fps": 1337,
+      "5_to_9_fps": 0,
+      "under_5_fps": 0
+    }
+  }
+}
+
+{
+  "timestamp": "2026-09-04T10:27:12.150Z",
+  "machine_id": "morfess-MacBook-Air.local",
+  "framework": "electron",
+  "hardware_mode": "gpu",
+  "window_duration_seconds": 60,
+  "active_streams": 30,
+  "fps_stream_seconds": {
+    "acceptable": {
+      "25_to_30_fps": 0,
+      "20_to_24_fps": 26
+    },
+    "unacceptable": {
+      "10_to_19_fps": 424,
+      "5_to_9_fps": 0,
+      "under_5_fps": 0
+    }
+  }
+}
+

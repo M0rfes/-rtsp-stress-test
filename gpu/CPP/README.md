@@ -149,8 +149,8 @@ timestamp,pid,cpu_percent,ram_rss_mb,gpu_vram_mb,gpu_decoder_percent
 
 ### 1. Headed Mode (Desktop Window Inspection)
 ```bash
-# Start local MediaMTX test stream
-./scripts/start_rtsp_feed.sh &
+# Start shared RTSP server from repo root
+../../rtsp-server/start.sh &
 
 # Run headed benchmark
 ./scripts/run_benchmark_headed.sh

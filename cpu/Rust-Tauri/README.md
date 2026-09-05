@@ -100,15 +100,15 @@ This implementation fulfills the **CPU-Only (Software Decoding)** benchmark spec
 - **Rust Toolchain:** `rustc >= 1.92` (Install via `rustup update`)
 - **Node.js:** Node.js >= 18 (Tested on Node 22/25)
 - **GStreamer:**
-  - macOS: `brew install gstreamer ffmpeg mediamtx`
+  - macOS: `brew install gstreamer ffmpeg`
   - Linux (Ubuntu): `sudo apt install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav libwebkit2gtk-4.1-dev ffmpeg`
 
-### 2. Start the Local RTSP Test Feed (1440p 25 FPS)
-In a dedicated terminal:
+### 2. Start the shared RTSP server
+From the repo root:
 ```bash
-npm run rtsp:feed
+./rtsp-server/start.sh
 ```
-This runs MediaMTX and publishes a 2560×1440 25 FPS test pattern to `rtsp://127.0.0.1:8554/live`.
+Serves `rtsp://127.0.0.1:8554/live` for all 10 clients (300 TCP readers).
 
 ### 3. Run the Tauri Application in Development Mode
 ```bash

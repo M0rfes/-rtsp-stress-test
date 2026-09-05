@@ -1,0 +1,23 @@
+[Unit]
+Description=RTSP Phase 2 camera churn (seeded drops after 3h)
+After=network-online.target rtsp-feed-server.service
+Wants=network-online.target
+Requires=rtsp-feed-server.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/rtsp-server
+ExecStart=/usr/bin/python3 /opt/rtsp-server/phase2.py
+Restart=on-failure
+RestartSec=5
+Environment=MTX_API=http://127.0.0.1:9997
+Environment=CAMERA_COUNT=30
+Environment=PHASE1_SECONDS=10800
+Environment=PHASE2_SECONDS=10800
+Environment=CHURN_SEED=20260904
+Environment=GO_FILE=/opt/rtsp-server/GO
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

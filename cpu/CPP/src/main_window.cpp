@@ -120,7 +120,7 @@ void MainWindow::setupUi() {
     m_videoWidgets.reserve(totalStreams);
 
     for (int i = 0; i < totalStreams; ++i) {
-        auto* worker = new StreamWorker(i, m_config.rtspUrl, this);
+        auto* worker = new StreamWorker(i, m_config.urlForStream(i), this);
         m_workers.push_back(worker);
 
         auto* widget = new VideoWidget(i, worker, gridContainer);

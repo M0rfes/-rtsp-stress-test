@@ -46,6 +46,9 @@ AppConfig AppConfig::loadFromArgsAndEnv(int argc, char* argv[]) {
     if (const char* envUrl = std::getenv("RTSP_URL")) {
         config.rtspUrl = envUrl;
     }
+    if (const char* envPattern = std::getenv("RTSP_URL_PATTERN")) {
+        config.rtspUrlPattern = envPattern;
+    }
     if (const char* envCount = std::getenv("STREAM_COUNT")) {
         int c = std::atoi(envCount);
         if (c > 0) config.streamCount = c;
@@ -107,6 +110,21 @@ AppConfig AppConfig::loadFromArgsAndEnv(int argc, char* argv[]) {
 
     // Resolve log path with fallback
     config.logPath = resolveLogPath(config.logPath);
+    if (config.rtspUrlPattern.empty() && config.rtspUrl.find("%d") != std::string::npos) {
+        config.rtspUrlPattern = config.rtspUrl;
+    }
 
     return config;
+}
+
+std::string AppConfig::urlForStream(int index) const {
+    if (rtspUrlPattern.empty()) {
+        return rtspUrl;
+    }
+    std::string out = rtspUrlPattern;
+    auto pos = out.find("%d");
+    if (pos != std::string::npos) {
+        out.replace(pos, 2, std::to_string(index));
+    }
+    return out;
 }

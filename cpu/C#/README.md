@@ -190,7 +190,7 @@ dotnet publish -c Release -o bin/publish
 
 ### 2. Start Test Stream (1440p @ 25 FPS)
 ```bash
-./scripts/start_rtsp_feed.sh
+../../rtsp-server/start.sh
 ```
 
 ### 3. Run Benchmark Application

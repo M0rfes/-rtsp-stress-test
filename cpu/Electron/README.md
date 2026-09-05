@@ -47,14 +47,13 @@ Platform hooks live in `src/main/platform.ts` and `scripts/launch-electron.js`. 
 ### 1. Prerequisites
 - Node.js >= 18 (Tested on Node.js 25)
 - FFmpeg (`brew install ffmpeg`)
-- MediaMTX (`brew install mediamtx`) for local RTSP test feed
 
-### 2. Start the RTSP Test Feed (1440p 25 FPS)
-In a separate terminal:
+### 2. Start the shared RTSP server
+In a separate terminal from the repo root:
 ```bash
-npm run rtsp:feed
+./rtsp-server/start.sh
 ```
-This starts MediaMTX and publishes a 2560x1440 25 FPS H.264 video feed to `rtsp://127.0.0.1:8554/live`.
+Serves `rtsp://127.0.0.1:8554/live` for all 10 clients (300 TCP readers).
 
 ### 3. Build & Run the Electron Benchmark
 ```bash

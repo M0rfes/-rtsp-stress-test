@@ -50,7 +50,7 @@ In production benchmarking, the RTSP video source runs on a **separate EC2 insta
 3. SSH into Box A and run the automated setup script:
    ```bash
    # Clone repo or copy script to Box A
-   ./scripts/setup_rtsp_server_box.sh
+   sudo ../../rtsp-server/setup.sh
    ```
 4. Note Box A's private IP (e.g. `10.0.1.50`). The stream is now live and auto-starts on boot at `rtsp://<BOX_A_PRIVATE_IP>:8554/live`.
 

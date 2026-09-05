@@ -48,30 +48,9 @@ In production benchmarking, the RTSP video source runs on a **separate EC2 insta
 ### Setting Up Box A (Dedicated RTSP Server Box):
 1. Launch an Ubuntu instance (e.g. `c7i.large` or `c6i.large`) in the **same VPC and Availability Zone** as your benchmark box.
 2. In Box A's Security Group, allow **Inbound TCP Port 8554** from Box B's Security Group (or your VPC CIDR, e.g. `10.0.0.0/16`).
-3. SSH into Box A and start the RTSP feed:
+3. SSH into Box A and install the shared RTSP server:
    ```bash
-   # Install MediaMTX and FFmpeg
-   sudo apt update && sudo apt install -y ffmpeg wget
-   wget https://github.com/bluenviron/mediamtx/releases/download/v1.9.0/mediamtx_v1.9.0_linux_amd64.tar.gz
-   tar -xzf mediamtx_v1.9.0_linux_amd64.tar.gz && sudo mv mediamtx /usr/local/bin/
-
-   # Configure mediamtx.yml with high buffer queue
-   cat << 'EOF' > mediamtx.yml
-   api: yes
-   protocols: [tcp]
-   readBufferCount: 8192
-   writeQueueSize: 8192
-   paths:
-     all:
-   EOF
-
-   mediamtx mediamtx.yml &
-
-   # Publish 1440p 25 FPS H.264 stream
-   ffmpeg -re -f lavfi -i "testsrc2=size=2560x1440:rate=25" \
-     -c:v libx264 -preset ultrafast -tune zerolatency -threads 4 \
-     -g 25 -pix_fmt yuv420p \
-     -f rtsp -rtsp_transport tcp rtsp://127.0.0.1:8554/live
+   sudo ./rtsp-server/setup.sh
    ```
 4. Note Box A's private IP (e.g. `10.0.1.50`). The stream is now live at `rtsp://10.0.1.50:8554/live`.
 

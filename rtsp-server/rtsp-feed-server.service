@@ -1,0 +1,20 @@
+[Unit]
+Description=Shared MediaMTX RTSP publisher (1440p25, 300 TCP readers)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/rtsp-server
+ExecStart=/opt/rtsp-server/start.sh
+Restart=always
+RestartSec=2
+LimitNOFILE=1048576
+LimitNPROC=65535
+TasksMax=infinity
+Environment=MEDIAMTX_VERSION=v1.20.1
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

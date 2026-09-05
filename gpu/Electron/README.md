@@ -66,12 +66,12 @@ cd gpu/Electron
 npm install
 ```
 
-### 2. Start Local RTSP Test Feed (MediaMTX + FFmpeg)
-In a separate terminal:
+### 2. Start the shared RTSP server
+In a separate terminal from the repo root:
 ```bash
-npm run rtsp:feed
+./rtsp-server/start.sh
 ```
-This serves a 2560x1440 25 FPS H.264 video feed at `rtsp://127.0.0.1:8554/live`.
+Serves `rtsp://127.0.0.1:8554/live` for all 10 clients (300 TCP readers).
 
 ### 3. Build & Run
 ```bash

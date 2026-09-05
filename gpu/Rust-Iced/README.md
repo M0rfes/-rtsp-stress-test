@@ -92,8 +92,8 @@ This implementation fulfills the **GPU-Accelerated (Zero-Copy)** benchmark speci
 
 ### 1. Headed Mode (Desktop Window Inspection)
 ```bash
-# Start MediaMTX RTSP stream
-./scripts/start_rtsp_feed.sh &
+# Start shared RTSP server from repo root
+../../rtsp-server/start.sh &
 
 # Run headed benchmark
 ./scripts/run_benchmark_headed.sh

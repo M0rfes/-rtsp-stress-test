@@ -5,6 +5,7 @@
 
 struct AppConfig {
     std::string rtspUrl = "rtsp://127.0.0.1:8554/live";
+    std::string rtspUrlPattern;
     int streamCount = 30;
     std::string logPath = "/var/log/benchmark/fps_metrics.log";
     std::string machineId = "c7i-8xlarge-node-1";
@@ -13,4 +14,5 @@ struct AppConfig {
 
     static AppConfig loadFromArgsAndEnv(int argc, char* argv[]);
     static std::string resolveLogPath(const std::string& preferredPath);
+    std::string urlForStream(int index) const;
 };

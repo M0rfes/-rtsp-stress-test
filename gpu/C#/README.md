@@ -33,7 +33,7 @@ Presentation is measured in `VideoGlControl.OnOpenGlRender` when a new PTS is ac
 
 ```bash
 dotnet publish -c Release -o bin/publish
-./scripts/start_rtsp_feed.sh &
+../../rtsp-server/start.sh &
 ./scripts/run_benchmark_headed.sh
 ```
 

@@ -37,8 +37,10 @@ apt-get install -y nodejs
 # Install Rust toolchain
 echo "[*] Installing Rust..."
 if ! command -v rustc >/dev/null 2>&1; then
+  export HOME="${HOME:-/root}"
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-  source "$HOME/.cargo/env"
+  # shellcheck disable=SC1091
+  source "${HOME}/.cargo/env"
 fi
 
 # Ensure benchmark log directory exists and has open permissions

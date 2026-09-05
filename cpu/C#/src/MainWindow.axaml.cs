@@ -72,7 +72,7 @@ public partial class MainWindow : Window
 
         for (var i = 1; i <= count; i++)
         {
-            var worker = new StreamWorker(i, _config.RtspUrl, _config.RenderWidth, _config.RenderHeight);
+            var worker = new StreamWorker(i, _config.UrlForStream(i - 1), _config.RenderWidth, _config.RenderHeight);
             _workers.Add(worker);
 
             var tile = new VideoTileControl();

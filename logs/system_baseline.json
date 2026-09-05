@@ -1,0 +1,23 @@
+{
+  "recorded_at": "2026-09-05T02:34:22Z",
+  "idle_cpu_percent": 0.0,
+  "ram": {
+    "total_mb": 0.0,
+    "available_mb": 0.0,
+    "used_mb": 0.0,
+    "percent": 0.0
+  },
+  "gpu": {
+    "available": false,
+    "name": "N/A",
+    "temp_c": null,
+    "vram_used_mb": null,
+    "vram_free_mb": null,
+    "vram_total_mb": null
+  },
+  "tolerances": {
+    "max_idle_cpu_percent": 7.0,
+    "max_gpu_temp_c": 50.0,
+    "max_vram_used_mb": 600.0
+  }
+}
