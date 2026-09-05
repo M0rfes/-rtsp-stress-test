@@ -144,9 +144,11 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
 
     const updatePresentSize = () => {
       const dpr = window.devicePixelRatio || 1;
-      const cssW = Math.max(1, Math.round(canvas.clientWidth * dpr));
-      const cssH = Math.max(1, Math.round(canvas.clientHeight * dpr));
-      presentSizeRef.current = { width: cssW, height: cssH };
+      const w = Math.round(canvas.clientWidth * dpr);
+      const h = Math.round(canvas.clientHeight * dpr);
+      if (w > 10 && h > 10) {
+        presentSizeRef.current = { width: w, height: h };
+      }
     };
     updatePresentSize();
     const resizeObserver = typeof ResizeObserver !== 'undefined'
@@ -186,6 +188,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
 
       decodedCountRef.current++;
 
+      // Effective FPS: Presentation Timestamp (PTS) uniqueness check
       const curPts = videoFrame.timestamp;
       if (lastPtsRef.current !== null && curPts === lastPtsRef.current) {
         videoFrame.close();
@@ -193,10 +196,17 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
       }
       lastPtsRef.current = curPts;
 
-      const targetW = isMac && presentSizeRef.current.width > 0
+      // Backpressure: drop frame if presentation pipeline is backed up (> 2 frames pending)
+      if (pendingFramesRef.current > 2) {
+        videoFrame.close();
+        return;
+      }
+
+      // Universal tile presentation sizing across all platforms
+      const targetW = presentSizeRef.current.width > 10
         ? presentSizeRef.current.width
         : videoFrame.displayWidth;
-      const targetH = isMac && presentSizeRef.current.height > 0
+      const targetH = presentSizeRef.current.height > 10
         ? presentSizeRef.current.height
         : videoFrame.displayHeight;
 
@@ -214,16 +224,28 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
 
       pendingFramesRef.current++;
 
-      const bitmapOptions: ImageBitmapOptions | undefined = isMac
-        ? { resizeWidth: targetW, resizeHeight: targetH, resizeQuality: 'low' }
+      // Downsample via GPU hardware scaler during ImageBitmap creation
+      const shouldResize = targetW > 10 && targetH > 10 &&
+        (targetW !== videoFrame.displayWidth || targetH !== videoFrame.displayHeight);
+      const bitmapOptions: ImageBitmapOptions | undefined = shouldResize
+        ? { resizeWidth: Math.round(targetW), resizeHeight: Math.round(targetH), resizeQuality: 'low' }
         : undefined;
 
-      const bitmapPromise = bitmapOptions
+      const bitmapPromise = (bitmapOptions
         ? createImageBitmap(videoFrame, bitmapOptions)
-        : createImageBitmap(videoFrame);
+        : createImageBitmap(videoFrame)
+      ).catch((err) => {
+        if (bitmapOptions) {
+          return createImageBitmap(videoFrame);
+        }
+        throw err;
+      });
+
       bitmapPromise
         .then((bitmap) => {
-          videoFrame.close();
+          try {
+            videoFrame.close();
+          } catch (_) {}
           pendingFramesRef.current--;
 
           if (isDestroyed) {
@@ -235,8 +257,10 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
             bitmapCtxRef.current.transferFromImageBitmap(bitmap);
 
             const now = performance.now();
-            if (lastPresentedTimeRef.current > 0) {
+            if (lastPresentedTimeRef.current > 0 && (now - lastPresentedTimeRef.current) < 2000) {
               lastDeltaMsRef.current = now - lastPresentedTimeRef.current;
+            } else {
+              lastDeltaMsRef.current = 40.0;
             }
             lastPresentedTimeRef.current = now;
             if (!isConnectedRef.current) {
@@ -254,7 +278,9 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
         })
         .catch(() => {
           pendingFramesRef.current--;
-          videoFrame.close();
+          try {
+            videoFrame.close();
+          } catch (_) {}
         });
     };
 
@@ -265,9 +291,15 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
           error: (err) => {
             console.warn(`[Stream ${streamId}] VideoDecoder error:`, err);
             hasConfiguredRef.current = false;
-            if (isMac && hwAccelRef.current === 'prefer-hardware') {
+            if (decoderRef.current && decoderRef.current.state !== 'closed') {
+              try {
+                decoderRef.current.close();
+              } catch (_) {}
+            }
+            decoderRef.current = null;
+            if (hwAccelRef.current === 'prefer-hardware') {
               hwAccelRef.current = 'no-preference';
-              console.warn(`[Stream ${streamId}] VideoToolbox session saturated, falling back to no-preference`);
+              console.warn(`[Stream ${streamId}] Hardware decode error/saturation, falling back to no-preference`);
             }
           },
         });
@@ -295,7 +327,7 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
     };
 
     ws.onmessage = (event: MessageEvent) => {
-      if (isDestroyed || !decoderRef.current) return;
+      if (isDestroyed) return;
       if (typeof event.data === 'string') return;
 
       const buffer = event.data as ArrayBuffer;
@@ -310,10 +342,11 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
         const detectedCodec = extractSpsCodec(nalData) || 'avc1.42c032';
         const needsConfig = !hasConfiguredRef.current
           || currentCodecRef.current !== detectedCodec
+          || !decoderRef.current
           || decoderRef.current.state !== 'configured';
         if (needsConfig) {
           try {
-            if (decoderRef.current.state === 'closed') {
+            if (!decoderRef.current || decoderRef.current.state === 'closed') {
               const nextDecoder = createDecoder();
               if (!nextDecoder) return;
               decoderRef.current = nextDecoder;
@@ -332,8 +365,8 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(({ strea
         }
       }
 
-      // Can only decode if decoder has been configured with a keyframe
-      if (!hasConfiguredRef.current || decoderRef.current.state !== 'configured') {
+      // Can only decode if decoder is ready and configured
+      if (!hasConfiguredRef.current || !decoderRef.current || decoderRef.current.state !== 'configured') {
         return;
       }
 

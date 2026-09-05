@@ -25,6 +25,7 @@ export class RtspDemuxer extends EventEmitter {
   private lastPps: Buffer | null = null;
   private frameCount: number = 0;
   private startTimeUs: bigint = 0n;
+  private waitingForKeyframe: boolean = true;
 
   constructor(streamId: number, rtspUrl?: string) {
     super();
@@ -35,6 +36,7 @@ export class RtspDemuxer extends EventEmitter {
   public start(): void {
     if (this.isRunning) return;
     this.isRunning = true;
+    this.waitingForKeyframe = true;
     this.startTimeUs = BigInt(Math.floor(performance.now() * 1000));
     this.spawnFfmpeg();
   }
@@ -46,20 +48,29 @@ export class RtspDemuxer extends EventEmitter {
       this.reconnectTimer = null;
     }
     if (this.ffmpegProcess) {
-      this.ffmpegProcess.kill('SIGTERM');
+      try {
+        this.ffmpegProcess.kill('SIGTERM');
+      } catch {
+        // Ignore kill errors
+      }
       this.ffmpegProcess = null;
     }
     this.buffer = Buffer.alloc(0);
     this.currentAuBuffers = [];
     this.hasVclInCurrentAu = false;
     this.currentAuHasKey = false;
+    this.waitingForKeyframe = true;
   }
 
   private spawnFfmpeg(): void {
     if (!this.isRunning) return;
 
+    this.waitingForKeyframe = true;
+
     // FFmpeg demux command:
     // -rtsp_transport tcp: reliable RTSP packet delivery without UDP loss
+    // -stimeout 5000000: 5-second socket timeout in microseconds so FFmpeg recovers quickly from dropped streams
+    // -max_delay 500000: 500ms max latency buffer
     // -i <url>: RTSP input
     // -c:v copy: strictly demux without decoding (no CPU decode)
     // -bsf:v "h264_mp4toannexb,dump_extra=freq=keyframe": ensure SPS/PPS on every keyframe in Annex B format
@@ -67,6 +78,8 @@ export class RtspDemuxer extends EventEmitter {
     const args = [
       '-loglevel', 'error',
       '-rtsp_transport', 'tcp',
+      '-timeout', '5000000',
+      '-max_delay', '500000',
       '-i', this.rtspUrl,
       '-c:v', 'copy',
       '-bsf:v', 'h264_mp4toannexb,dump_extra=freq=keyframe',
@@ -84,10 +97,12 @@ export class RtspDemuxer extends EventEmitter {
       });
 
       this.ffmpegProcess.stderr?.on('data', (data: Buffer) => {
-        const msg = data.toString().trim();
-        if (msg) {
-          console.warn(`[Demuxer ${this.streamId}] FFmpeg stderr: ${msg}`);
-        }
+        try {
+          const msg = data.toString().trim();
+          if (msg) {
+            console.warn(`[Demuxer ${this.streamId}] FFmpeg stderr: ${msg}`);
+          }
+        } catch (_) {}
       });
 
       this.ffmpegProcess.on('close', (code) => {
@@ -96,6 +111,7 @@ export class RtspDemuxer extends EventEmitter {
         this.currentAuBuffers = [];
         this.hasVclInCurrentAu = false;
         this.currentAuHasKey = false;
+        this.waitingForKeyframe = true;
         if (this.isRunning) {
           console.warn(`[Demuxer ${this.streamId}] FFmpeg exited with code ${code}. Reconnecting in 3s...`);
           this.reconnectTimer = setTimeout(() => this.spawnFfmpeg(), 3000);
@@ -192,6 +208,18 @@ export class RtspDemuxer extends EventEmitter {
 
   private emitCurrentAccessUnit(): void {
     if (this.currentAuBuffers.length === 0) return;
+
+    // Discard delta frames arriving before the first clean keyframe after start/reconnect
+    if (this.waitingForKeyframe) {
+      if (!this.currentAuHasKey) {
+        this.currentAuBuffers = [];
+        this.hasVclInCurrentAu = false;
+        this.currentAuHasKey = false;
+        this.currentAuHasSps = false;
+        return;
+      }
+      this.waitingForKeyframe = false;
+    }
 
     // If this is a keyframe and SPS is not in the current AU, prepend cached SPS and PPS
     if (this.currentAuHasKey && !this.currentAuHasSps) {

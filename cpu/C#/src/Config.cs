@@ -11,8 +11,8 @@ public sealed class AppConfig
     public string LogPath { get; set; } = "/var/log/benchmark/fps_metrics.log";
     public string MachineId { get; set; } = Environment.MachineName;
     public string? FFmpegPath { get; set; }
-    public int RenderWidth { get; set; } = 0; // 0 = native stream resolution (e.g. 2560x1440)
-    public int RenderHeight { get; set; } = 0;
+    public int RenderWidth { get; set; } = 640; // 640x360 default tile resolution prevents UI bus saturation on 30-stream grid
+    public int RenderHeight { get; set; } = 360;
 
     public static AppConfig Load(string[] args)
     {
@@ -99,6 +99,11 @@ public sealed class AppConfig
             {
                 config.RenderWidth = 640;
                 config.RenderHeight = 360;
+            }
+            else if (arg == "--native-res")
+            {
+                config.RenderWidth = 0;
+                config.RenderHeight = 0;
             }
             else if (arg == "--render-width" && i + 1 < args.Length)
             {

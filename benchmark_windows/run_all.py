@@ -49,9 +49,9 @@ def main() -> None:
 
     common_ui_args = ["--url", args.url, "--streams", str(args.streams)]
 
-    # Configure duration overrides if quick-test flag is active
-    c_args = (["--duration", "1.0", "--phase1", "0.5"] if args.quick_test else []) + common_ui_args
-    net_args = (["--duration", "1.0", "--phase1", "0.5"] if args.quick_test else []) + common_ui_args
+    # Configure duration overrides if quick-test flag is active (1.25 min / 75s ensures 60s telemetry window flushes)
+    c_args = (["--duration", "1.25", "--phase1", "0.5"] if args.quick_test else []) + common_ui_args
+    net_args = (["--duration", "1.25", "--phase1", "0.5"] if args.quick_test else []) + common_ui_args
     pause_args = ["--min-cool-mins", "0.2" if args.quick_test else str(args.cool_mins)]
 
     print("\n" + "#" * 60)

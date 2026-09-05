@@ -154,6 +154,7 @@ public sealed unsafe class VideoGlControl : OpenGlControlBase
             format == AVPixelFormat.AV_PIX_FMT_VIDEOTOOLBOX &&
             frame->data[3] != null)
         {
+            EnsureNv12Storage(gl, w, h, needRealloc);
             UploadVideoToolbox(gl, extras, frame, upload || needRealloc);
             DrawNv12(gl, extras);
             return;
@@ -170,7 +171,7 @@ public sealed unsafe class VideoGlControl : OpenGlControlBase
 
         if (format is AVPixelFormat.AV_PIX_FMT_VAAPI or AVPixelFormat.AV_PIX_FMT_D3D11)
         {
-            if (UploadMappedHwFrame(gl, extras, frame, upload || needRealloc))
+            if (UploadMappedHwFrame(gl, extras, frame, upload || needRealloc, needRealloc))
             {
                 return;
             }
@@ -178,6 +179,7 @@ public sealed unsafe class VideoGlControl : OpenGlControlBase
 
         if (format == AVPixelFormat.AV_PIX_FMT_NV12 || (frame->data[0] != null && frame->data[1] != null && frame->data[2] == null))
         {
+            EnsureNv12Storage(gl, w, h, needRealloc);
             UploadNv12(gl, extras, frame->data[0], frame->linesize[0], frame->data[1], frame->linesize[1], w, h, upload || needRealloc);
             DrawNv12(gl, extras);
             return;
@@ -185,6 +187,7 @@ public sealed unsafe class VideoGlControl : OpenGlControlBase
 
         if (format == AVPixelFormat.AV_PIX_FMT_YUV420P || (frame->data[0] != null && frame->data[1] != null && frame->data[2] != null))
         {
+            EnsureYuv420pStorage(gl, w, h, needRealloc);
             UploadYuv420p(gl, extras, frame, upload || needRealloc);
             DrawYuv420p(gl, extras);
         }
@@ -293,7 +296,7 @@ public sealed unsafe class VideoGlControl : OpenGlControlBase
         CudaGlInterop.cuMemcpy2D(ref copy);
     }
 
-    private bool UploadMappedHwFrame(GlInterface gl, GlExtras extras, AVFrame* frame, bool upload)
+    private bool UploadMappedHwFrame(GlInterface gl, GlExtras extras, AVFrame* frame, bool upload, bool needRealloc)
     {
         var mapped = ffmpeg.av_frame_alloc();
         if (mapped == null)
@@ -308,11 +311,13 @@ public sealed unsafe class VideoGlControl : OpenGlControlBase
             var mappedFmt = (AVPixelFormat)mapped->format;
             if (mappedFmt == AVPixelFormat.AV_PIX_FMT_NV12 || mapped->data[1] != null)
             {
+                EnsureNv12Storage(gl, mapped->width, mapped->height, needRealloc);
                 UploadNv12(gl, extras, mapped->data[0], mapped->linesize[0], mapped->data[1], mapped->linesize[1], mapped->width, mapped->height, upload);
                 DrawNv12(gl, extras);
             }
             else if (mappedFmt == AVPixelFormat.AV_PIX_FMT_YUV420P || mapped->data[2] != null)
             {
+                EnsureYuv420pStorage(gl, mapped->width, mapped->height, needRealloc);
                 UploadYuv420p(gl, extras, mapped, upload);
                 DrawYuv420p(gl, extras);
             }
@@ -326,7 +331,7 @@ public sealed unsafe class VideoGlControl : OpenGlControlBase
 
     private void EnsureNv12Storage(GlInterface gl, int w, int h, bool realloc)
     {
-        if (!realloc && _texWidth == w)
+        if (!realloc && _texWidth == w && _texHeight == h)
         {
             return;
         }
@@ -338,6 +343,22 @@ public sealed unsafe class VideoGlControl : OpenGlControlBase
         gl.BindTexture(GL_TEXTURE_2D, 0);
     }
 
+    private void EnsureYuv420pStorage(GlInterface gl, int w, int h, bool realloc)
+    {
+        if (!realloc && _texWidth == w && _texHeight == h)
+        {
+            return;
+        }
+
+        gl.BindTexture(GL_TEXTURE_2D, _texY);
+        gl.TexImage2D(GL_TEXTURE_2D, 0, GlExtras.GL_R8, w, h, 0, GlExtras.GL_RED, GL_UNSIGNED_BYTE, IntPtr.Zero);
+        gl.BindTexture(GL_TEXTURE_2D, _texU);
+        gl.TexImage2D(GL_TEXTURE_2D, 0, GlExtras.GL_R8, w / 2, h / 2, 0, GlExtras.GL_RED, GL_UNSIGNED_BYTE, IntPtr.Zero);
+        gl.BindTexture(GL_TEXTURE_2D, _texV);
+        gl.TexImage2D(GL_TEXTURE_2D, 0, GlExtras.GL_R8, w / 2, h / 2, 0, GlExtras.GL_RED, GL_UNSIGNED_BYTE, IntPtr.Zero);
+        gl.BindTexture(GL_TEXTURE_2D, 0);
+    }
+
     private void UploadNv12(GlInterface gl, GlExtras extras, byte* y, int yStride, byte* uv, int uvStride, int w, int h, bool upload)
     {
         gl.ActiveTexture(GL_TEXTURE0);
@@ -346,7 +367,7 @@ public sealed unsafe class VideoGlControl : OpenGlControlBase
         {
             extras.PixelStorei(GlExtras.GL_UNPACK_ALIGNMENT, 1);
             extras.PixelStorei(GlExtras.GL_UNPACK_ROW_LENGTH, yStride);
-            gl.TexImage2D(GL_TEXTURE_2D, 0, GlExtras.GL_R8, w, h, 0, GlExtras.GL_RED, GL_UNSIGNED_BYTE, (IntPtr)y);
+            extras.TexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GlExtras.GL_RED, GL_UNSIGNED_BYTE, y);
         }
 
         gl.ActiveTexture(GL_TEXTURE0 + 1);
@@ -354,7 +375,7 @@ public sealed unsafe class VideoGlControl : OpenGlControlBase
         if (upload)
         {
             extras.PixelStorei(GlExtras.GL_UNPACK_ROW_LENGTH, uvStride / 2);
-            gl.TexImage2D(GL_TEXTURE_2D, 0, GlExtras.GL_RG8, w / 2, h / 2, 0, GlExtras.GL_RG, GL_UNSIGNED_BYTE, (IntPtr)uv);
+            extras.TexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w / 2, h / 2, GlExtras.GL_RG, GL_UNSIGNED_BYTE, uv);
             extras.PixelStorei(GlExtras.GL_UNPACK_ALIGNMENT, 4);
             extras.PixelStorei(GlExtras.GL_UNPACK_ROW_LENGTH, 0);
         }
@@ -370,7 +391,7 @@ public sealed unsafe class VideoGlControl : OpenGlControlBase
         {
             extras.PixelStorei(GlExtras.GL_UNPACK_ALIGNMENT, 1);
             extras.PixelStorei(GlExtras.GL_UNPACK_ROW_LENGTH, frame->linesize[0]);
-            gl.TexImage2D(GL_TEXTURE_2D, 0, GlExtras.GL_R8, w, h, 0, GlExtras.GL_RED, GL_UNSIGNED_BYTE, (IntPtr)frame->data[0]);
+            extras.TexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GlExtras.GL_RED, GL_UNSIGNED_BYTE, frame->data[0]);
         }
 
         gl.ActiveTexture(GL_TEXTURE0 + 1);
@@ -378,7 +399,7 @@ public sealed unsafe class VideoGlControl : OpenGlControlBase
         if (upload)
         {
             extras.PixelStorei(GlExtras.GL_UNPACK_ROW_LENGTH, frame->linesize[1]);
-            gl.TexImage2D(GL_TEXTURE_2D, 0, GlExtras.GL_R8, w / 2, h / 2, 0, GlExtras.GL_RED, GL_UNSIGNED_BYTE, (IntPtr)frame->data[1]);
+            extras.TexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w / 2, h / 2, GlExtras.GL_RED, GL_UNSIGNED_BYTE, frame->data[1]);
         }
 
         gl.ActiveTexture(GL_TEXTURE0 + 2);
@@ -386,7 +407,7 @@ public sealed unsafe class VideoGlControl : OpenGlControlBase
         if (upload)
         {
             extras.PixelStorei(GlExtras.GL_UNPACK_ROW_LENGTH, frame->linesize[2]);
-            gl.TexImage2D(GL_TEXTURE_2D, 0, GlExtras.GL_R8, w / 2, h / 2, 0, GlExtras.GL_RED, GL_UNSIGNED_BYTE, (IntPtr)frame->data[2]);
+            extras.TexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w / 2, h / 2, GlExtras.GL_RED, GL_UNSIGNED_BYTE, frame->data[2]);
             extras.PixelStorei(GlExtras.GL_UNPACK_ALIGNMENT, 4);
             extras.PixelStorei(GlExtras.GL_UNPACK_ROW_LENGTH, 0);
         }

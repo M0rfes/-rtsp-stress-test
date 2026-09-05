@@ -47,4 +47,10 @@ private:
     int m_texWidth = 0;
     int m_texHeight = 0;
     bool m_glInitialized = false;
+
+    QPixmap m_hudCache;
+    float m_cachedFps = -1.0f;
+    bool m_cachedConnected = false;
+    int m_cachedWidth = -1;
+    int m_cachedHeight = -1;
 };

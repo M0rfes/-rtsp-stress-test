@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-09-05T12:39:14.583Z",
+  "machine_id": "Mac",
+  "framework": "electron",
+  "hardware_mode": "gpu",
+  "window_duration_seconds": 60,
+  "active_streams": 26,
+  "ui_frames": 2575,
+  "decoded_frames": 2575,
+  "fps_stream_seconds": {
+    "acceptable": {
+      "25_to_30_fps": 103,
+      "20_to_24_fps": 0
+    },
+    "unacceptable": {
+      "10_to_19_fps": 0,
+      "5_to_9_fps": 0,
+      "under_5_fps": 0
+    }
+  }
+}
+

@@ -125,18 +125,40 @@ void VideoWidget::paintEvent(QPaintEvent* event) {
     // 1. Render OpenGL scene
     QOpenGLWidget::paintEvent(event);
 
-    // 2. Render HUD overlay on top using QPainter with high quality antialiasing
-    QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing, true);
-    painter.setRenderHint(QPainter::TextAntialiasing, true);
-
     float fps = m_worker ? m_worker->currentFps() : 0.0f;
     bool isConnected = m_worker && m_worker->isConnected();
     bool isHw = m_worker && m_worker->isHwAccelerated();
     int frameW = m_texWidth;
     int frameH = m_texHeight;
 
-    drawHudOverlay(painter, frameW, frameH, fps, isConnected, isHw);
+    bool hudDirty = m_hudCache.isNull() ||
+                    m_hudCache.size() != size() ||
+                    std::abs(fps - m_cachedFps) > 0.4f ||
+                    isConnected != m_cachedConnected ||
+                    frameW != m_cachedWidth ||
+                    frameH != m_cachedHeight;
+
+    if (hudDirty) {
+        m_cachedFps = fps;
+        m_cachedConnected = isConnected;
+        m_cachedWidth = frameW;
+        m_cachedHeight = frameH;
+
+        if (m_hudCache.size() != size()) {
+            m_hudCache = QPixmap(size());
+        }
+        m_hudCache.fill(Qt::transparent);
+
+        QPainter cachePainter(&m_hudCache);
+        cachePainter.setRenderHint(QPainter::Antialiasing, true);
+        cachePainter.setRenderHint(QPainter::TextAntialiasing, true);
+        drawHudOverlay(cachePainter, frameW, frameH, fps, isConnected, isHw);
+        cachePainter.end();
+    }
+
+    // 2. Blit pre-rendered HUD overlay in single fast operation
+    QPainter painter(this);
+    painter.drawPixmap(0, 0, m_hudCache);
     painter.end();
 }
 

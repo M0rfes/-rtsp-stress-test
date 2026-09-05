@@ -10,6 +10,17 @@ let mainWindow: BrowserWindow | null = null;
 let streamPool: StreamPool | null = null;
 let wsServer: VideoWebSocketServer | null = null;
 
+process.on('uncaughtException', (err: any) => {
+  if (err && err.code === 'EPIPE') return;
+  console.error('[Main] Uncaught Exception:', err);
+});
+process.stdout?.on('error', (err: any) => {
+  if (err && err.code === 'EPIPE') process.exit(0);
+});
+process.stderr?.on('error', (err: any) => {
+  if (err && err.code === 'EPIPE') process.exit(0);
+});
+
 if (!ensureFileDescriptorLimit()) {
   // Parent waits for the re-exec'd child with a raised RLIMIT_NOFILE.
 } else {
@@ -68,16 +79,26 @@ if (!ensureFileDescriptorLimit()) {
   app.whenReady().then(bootstrap);
 
   app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-      app.quit();
-    }
+    app.quit();
   });
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+  const cleanExit = () => {
+    console.log('[Main] Application shutting down. Cleaning up resources...');
+    if (telemetry) {
+      telemetry.flushToDisk();
     }
-  });
+    if (streamPool) {
+      streamPool.stopAll();
+    }
+    if (wsServer) {
+      wsServer.close();
+    }
+    app.quit();
+    process.exit(0);
+  };
+
+  process.on('SIGINT', cleanExit);
+  process.on('SIGTERM', cleanExit);
 
   app.on('before-quit', () => {
     console.log('[Main] Application shutting down. Cleaning up resources...');
