@@ -227,6 +227,26 @@ def check_rtsp_stream_reachability(url: str, timeout: float = 2.5) -> bool:
         return False
 
 
+def restore_all_rtsp_cameras() -> None:
+    """Ensure all camera streams in MediaMTX are restored to origin."""
+    import urllib.request
+    try:
+        for i in range(30):
+            req = urllib.request.Request(
+                f"http://127.0.0.1:9997/v3/config/paths/patch/cam{i}",
+                data=json.dumps({"source": "rtsp://127.0.0.1:8554/origin"}).encode(),
+                headers={"Content-Type": "application/json"},
+                method="PATCH",
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=0.3):
+                    pass
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
 def execute_benchmark_session(
     framework: str,
     hardware_mode: str,
@@ -262,6 +282,9 @@ def execute_benchmark_session(
     if not check_rtsp_stream_reachability(rtsp_url):
         print(f"[!] NOTICE: RTSP endpoint {rtsp_url} is not responding to TCP ping.")
         print("    If using a local RTSP server, make sure it is running (e.g. MediaMTX).")
+
+    # Ensure all camera streams are restored to origin for Phase 1
+    restore_all_rtsp_cameras()
 
     # Clean pre-run state
     kill_all_benchmark_processes()
@@ -351,6 +374,8 @@ def execute_benchmark_session(
             except subprocess.TimeoutExpired:
                 pass
 
+        # Restore all cameras back to origin
+        restore_all_rtsp_cameras()
         kill_all_benchmark_processes()
         archived = archive_logs(framework, hardware_mode)
         print(f"[✓] Completed and archived to: {archived.relative_to(ROOT_DIR)}")
