@@ -45,6 +45,7 @@ def main() -> None:
     parser.add_argument("--quick-test", action="store_true", help="Dry run: runs each test for 1 minute to verify setup")
     parser.add_argument("--url", type=str, default="rtsp://127.0.0.1:8554/live", help="RTSP target stream URL")
     parser.add_argument("--streams", type=int, default=30, help="Number of concurrent video tiles (default: 30)")
+    parser.add_argument("--start-from", type=str, default=None, help="Start from a specific script (e.g. 05csharpgpu.py or csharp)")
     args = parser.parse_args()
 
     common_ui_args = ["--url", args.url, "--streams", str(args.streams)]
@@ -78,6 +79,19 @@ def main() -> None:
         ("08electroncpu.py", net_args, False),
         ("03pausetillidealagain.py", pause_args, True),
     ]
+
+    if args.start_from:
+        target = args.start_from.lower()
+        start_idx = None
+        for i, (script, _, _) in enumerate(steps):
+            if target in script.lower():
+                start_idx = i
+                break
+        if start_idx is not None:
+            steps = steps[start_idx:]
+            print(f"[*] Resuming sequence from step: {steps[0][0]}")
+        else:
+            print(f"[!] Warning: Step matching '{args.start_from}' not found. Running all steps.")
 
     total_steps = len(steps)
     start_all = time.time()
