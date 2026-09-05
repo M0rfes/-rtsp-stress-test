@@ -8,6 +8,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -119,7 +120,7 @@ def get_ram_info() -> Dict[str, float]:
 
 
 def get_gpu_info() -> Dict[str, Any]:
-    """Return GPU temperature (°C) and VRAM usage (MB) via nvidia-smi if available."""
+    """Return GPU temperature (°C), VRAM usage (MB), and decoder utilization via nvidia-smi if available."""
     info = {
         "available": False,
         "name": "N/A",
@@ -127,11 +128,12 @@ def get_gpu_info() -> Dict[str, Any]:
         "vram_used_mb": None,
         "vram_free_mb": None,
         "vram_total_mb": None,
+        "decoder_percent": None,
     }
 
     smi_out = run_cmd([
         "nvidia-smi",
-        "--query-gpu=name,temperature.gpu,memory.used,memory.free,memory.total",
+        "--query-gpu=name,temperature.gpu,memory.used,memory.free,memory.total,utilization.decoder",
         "--format=csv,noheader,nounits",
     ])
     if smi_out:
@@ -145,11 +147,167 @@ def get_gpu_info() -> Dict[str, Any]:
                 info["vram_used_mb"] = float(parts[2])
                 info["vram_free_mb"] = float(parts[3])
                 info["vram_total_mb"] = float(parts[4])
+                if len(parts) >= 6 and parts[5] != "":
+                    try:
+                        info["decoder_percent"] = float(parts[5])
+                    except ValueError:
+                        pass
                 return info
         except Exception:
             pass
 
     return info
+
+
+def get_gpu_hardware_metrics() -> tuple[float, float]:
+    """Return (gpu_vram_mb, gpu_decoder_percent) via nvidia-smi."""
+    smi_out = run_cmd([
+        "nvidia-smi",
+        "--query-gpu=memory.used,utilization.decoder",
+        "--format=csv,noheader,nounits",
+    ])
+    if smi_out:
+        try:
+            line = smi_out.splitlines()[0]
+            parts = [p.strip() for p in line.split(",")]
+            if len(parts) >= 2:
+                vram = float(parts[0]) if parts[0] else 0.0
+                dec = float(parts[1]) if parts[1] else 0.0
+                return round(vram, 1), round(dec, 1)
+        except Exception:
+            pass
+    return 0.0, 0.0
+
+
+def get_process_stats(pid: int) -> tuple[float, float]:
+    """Return (cpu_percent, ram_rss_mb) for process and its tree."""
+    try:
+        import psutil
+        if psutil.pid_exists(pid):
+            p = psutil.Process(pid)
+            tree = [p] + p.children(recursive=True)
+            total_cpu = 0.0
+            total_rss = 0
+            for proc in tree:
+                try:
+                    total_cpu += proc.cpu_percent(interval=None)
+                    total_rss += proc.memory_info().rss
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+            return round(total_cpu, 1), round(total_rss / (1024 * 1024), 1)
+    except Exception:
+        pass
+
+    if IS_WINDOWS:
+        ps_cmd = (
+            f"$p = Get-Process -Id {pid} -ErrorAction SilentlyContinue; "
+            f"if ($p) {{ [math]::Round($p.WorkingSet64 / 1MB, 1) }} else {{ 0 }}"
+        )
+        out = run_cmd(["powershell", "-NoProfile", "-Command", ps_cmd])
+        try:
+            rss_mb = float(out)
+            return get_cpu_load(), rss_mb
+        except (ValueError, TypeError):
+            pass
+    else:
+        out = run_cmd(["ps", "-p", str(pid), "-o", "%cpu,rss"])
+        lines = out.splitlines()
+        if len(lines) > 1:
+            parts = lines[1].strip().split()
+            if len(parts) >= 2:
+                try:
+                    cpu_val = float(parts[0])
+                    rss_val = round(float(parts[1]) / 1024.0, 1)
+                    return cpu_val, rss_val
+                except (ValueError, IndexError):
+                    pass
+
+    return get_cpu_load(), get_ram_info().get("used_mb", 0.0)
+
+
+class HardwarePoller:
+    """External background monitor that samples OS hardware & process metrics every N seconds to CSV."""
+
+    def __init__(
+        self,
+        target_pid: int,
+        hardware_mode: str,
+        output_csv: Path,
+        interval: float = 10.0,
+    ) -> None:
+        self.target_pid = target_pid
+        self.hardware_mode = hardware_mode.lower()
+        self.output_csv = output_csv
+        self.interval = interval
+        self._stop_event = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+
+    def start(self) -> None:
+        self.output_csv.parent.mkdir(parents=True, exist_ok=True)
+        # Initialize CSV header if file does not exist or is empty
+        if not self.output_csv.exists() or self.output_csv.stat().st_size == 0:
+            with open(self.output_csv, "w", encoding="utf-8") as f:
+                f.write("timestamp,pid,cpu_percent,ram_rss_mb,gpu_vram_mb,gpu_decoder_percent\n")
+
+        self._thread = threading.Thread(target=self._run, name="HardwarePoller", daemon=True)
+        self._thread.start()
+
+    def _run(self) -> None:
+        # Prime psutil counters if available
+        try:
+            import psutil
+            if psutil.pid_exists(self.target_pid):
+                p = psutil.Process(self.target_pid)
+                p.cpu_percent(interval=None)
+                for c in p.children(recursive=True):
+                    c.cpu_percent(interval=None)
+        except Exception:
+            pass
+
+        while not self._stop_event.is_set():
+            if not self._is_target_alive():
+                break
+
+            now_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            cpu_pct, ram_mb = get_process_stats(self.target_pid)
+            gpu_vram_mb, gpu_dec_pct = get_gpu_hardware_metrics()
+
+            # For CPU-only test modes, GPU decoder remains 0 per benchmark specification
+            if self.hardware_mode == "cpu":
+                gpu_dec_pct = 0.0
+
+            line = f"{now_str},{self.target_pid},{cpu_pct},{ram_mb},{gpu_vram_mb},{gpu_dec_pct}\n"
+            try:
+                with open(self.output_csv, "a", encoding="utf-8") as f:
+                    f.write(line)
+                    f.flush()
+            except Exception as e:
+                print(f"[!] Hardware poller write error: {e}", flush=True)
+
+            if self._stop_event.wait(self.interval):
+                break
+
+    def _is_target_alive(self) -> bool:
+        try:
+            import psutil
+            return psutil.pid_exists(self.target_pid)
+        except Exception:
+            pass
+
+        if IS_WINDOWS:
+            out = run_cmd(["tasklist", "/FI", f"PID eq {self.target_pid}", "/FO", "CSV"])
+            return str(self.target_pid) in out
+        else:
+            try:
+                os.kill(self.target_pid, 0)
+                return True
+            except OSError:
+                return False
+
+    def stop(self) -> None:
+        self._stop_event.set()
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=3.0)
 
 
 def get_system_metrics() -> Dict[str, Any]:
@@ -303,6 +461,7 @@ def execute_benchmark_session(
     print("[*] Launching application process...")
     proc = None
     churn_proc = None
+    poller = None
     churn_started = False
     start_time = time.time()
 
@@ -319,6 +478,17 @@ def execute_benchmark_session(
             **kwargs,
         )
         print(f"[✓] Process started with PID: {proc.pid}")
+
+        # Start external OS hardware telemetry monitor
+        hw_csv_path = LOG_DIR / "hardware_metrics.csv"
+        poller = HardwarePoller(
+            target_pid=proc.pid,
+            hardware_mode=hardware_mode,
+            output_csv=hw_csv_path,
+            interval=10.0,
+        )
+        poller.start()
+        print(f"[*] Started hardware telemetry monitor -> {hw_csv_path.relative_to(ROOT_DIR)}")
 
         while True:
             elapsed = time.time() - start_time
@@ -364,6 +534,10 @@ def execute_benchmark_session(
     except KeyboardInterrupt:
         print("\n[!] User interrupted benchmark (Ctrl+C). Cleaning up...")
     finally:
+        # Stop hardware monitoring poller
+        if poller:
+            poller.stop()
+
         # Terminate application & churn generator
         if churn_proc and churn_proc.poll() is None:
             churn_proc.terminate()
