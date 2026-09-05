@@ -70,6 +70,7 @@ Physical hardware retains heat, and Windows WDDM keeps GPU memory mapped until e
 
 | Script | Framework | Hardware | Total Time | Phase 1 (No Churn) | Phase 2 (Churn) |
 | :--- | :--- | :---: | :---: | :---: | :---: |
+| **`00start_rtsp_server.py`** | *RTSP server* | — | 10 sec | Auto-downloads & launches MediaMTX on port 8554 |
 | **`01baseline.py`** | *Hardware profiler* | — | 15 sec | Record idle CPU %, GPU temp, VRAM baseline |
 | **`02CPPCPU.py`** | C++ Qt6 | CPU | 20 min | 10 min steady | 10 min churn |
 | **`03pausetillidealagain.py`** | *Hardware cooldown* | — | 5–10 min | Polls live metrics; blocks until idle tolerances match baseline |
@@ -87,6 +88,9 @@ Physical hardware retains heat, and Windows WDDM keeps GPU memory mapped until e
 The agent executes each script sequentially. **Crucial:** When invoking `03pausetillidealagain.py`, the agent must simply wait for the command to finish with exit code `0`. `03pausetillidealagain.py` will actively monitor CPU load, GPU temperature, and VRAM and only exit when the system is cold and idle.
 
 ```powershell
+# 0. Start the Local RTSP Stream Server (MediaMTX)
+python benchmark_windows\00start_rtsp_server.py
+
 # 1. Establish Idle Baseline
 python benchmark_windows\01baseline.py
 

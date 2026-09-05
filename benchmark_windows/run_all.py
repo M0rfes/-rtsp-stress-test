@@ -63,6 +63,7 @@ def main() -> None:
 
     steps = [
         # (script, args, is_pause)
+        ("00start_rtsp_server.py", [], False),
         ("01baseline.py", [], False),
         ("02CPPCPU.py", c_args, False),
         ("03pausetillidealagain.py", pause_args, True),

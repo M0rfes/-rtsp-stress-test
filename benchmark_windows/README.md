@@ -8,6 +8,7 @@ This directory contains modular automation scripts to execute the RTSP video gri
 
 | Script | Purpose | Default Duration |
 | :--- | :--- | :--- |
+| **`00start_rtsp_server.py`** | Auto-downloads, configures, and launches MediaMTX RTSP server on port 8554 broadcasting 30 test streams. | ~10 seconds |
 | **`01baseline.py`** | Samples and logs CPU load, RAM, GPU temperature, and VRAM into `logs/system_baseline.json`. | ~15 seconds |
 | **`02CPPCPU.py`** | Runs C++ Qt6 CPU (software decode) benchmark; terminates all child processes upon completion and archives logs. | 20 min (10m steady + 10m churn) |
 | **`03pausetillidealagain.py`** | Compares live metrics against `system_baseline.json`, cooling the PC until CPU, GPU temp, and VRAM return to idle. | 5 – 10 min dwell |

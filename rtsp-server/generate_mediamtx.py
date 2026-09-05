@@ -40,6 +40,10 @@ paths:
   origin:
     runOnInit: '{FFMPEG}'
     runOnInitRestart: true
+  live:
+    source: rtsp://127.0.0.1:8554/origin
+    sourceOnDemand: false
+    maxReaders: 0
 """
 )
 for i in range(CAMERA_COUNT):
@@ -47,3 +51,4 @@ for i in range(CAMERA_COUNT):
     print("    source: rtsp://127.0.0.1:8554/origin")
     print("    sourceOnDemand: false")
     print("    maxReaders: 0")
+
